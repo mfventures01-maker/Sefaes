@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { MarkingScheme } from "../types";
 
 // Initialize Gemini Client
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI((import.meta as any).env.VITE_GEMINI_API_KEY || '');
 
 export const performOCR = async (imageBase64: string): Promise<string> => {
   try {
