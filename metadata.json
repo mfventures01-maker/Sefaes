@@ -1,0 +1,7 @@
+{
+  "name": "SEFAES - Sentiment and Emotion Free Assesment and Evaluation System",
+  "description": "Sentiment and Emotion Free Assessment and Evaluation System using AI for OCR and Grading.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
