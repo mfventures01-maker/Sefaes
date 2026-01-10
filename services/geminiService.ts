@@ -2,15 +2,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { MarkingScheme } from "../types";
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const genAI = new GoogleGenAI(process.env.API_KEY || '');
 
 export const performOCR = async (imageBase64: string): Promise<string> => {
   try {
     const cleanBase64 = imageBase64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
     
-    const response = await ai.getGenerativeModel({
-      model: 'gemini-1.5-flash'
-    }).generateContent({
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent({
       contents: [{
         role: 'user',
         parts: [
@@ -27,7 +26,7 @@ export const performOCR = async (imageBase64: string): Promise<string> => {
       }]
     });
 
-    const text = response.response.text();
+    const text = result.response.text();
     if (!text) {
       throw new Error("The AI detected an image but could not extract any text.");
     }
@@ -55,13 +54,10 @@ export const augmentEssayText = async (text: string): Promise<string> => {
       Return ONLY the cleaned text.
     `;
     
-    const response = await ai.getGenerativeModel({
-      model: 'gemini-1.5-flash'
-    }).generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent(prompt);
 
-    return response.response.text() || text;
+    return result.response.text() || text;
   } catch (error) {
     console.error("Augmentation Error:", error);
     return text;
@@ -116,7 +112,7 @@ export const gradeEssay = async (studentText: string, scheme: MarkingScheme) => 
       Return the result in JSON format.
     `;
 
-    const model = ai.getGenerativeModel({
+    const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
       generationConfig: {
         responseMimeType: "application/json",
@@ -142,11 +138,14 @@ export const gradeEssay = async (studentText: string, scheme: MarkingScheme) => 
       }
     });
 
-    const response = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
-
-    return JSON.parse(response.response.text() || '{}');
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    return JSON.parse(responseText || '{}');
+  } catch (error) {
+    console.error("Grading Error:", error);
+    throw new Error("Failed to grade the essay.");
+  }
+};
   } catch (error) {
     console.error("Grading Error:", error);
     throw new Error("Failed to grade the essay.");
