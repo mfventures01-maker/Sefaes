@@ -7,8 +7,33 @@ const genAI = new GoogleGenerativeAI((import.meta as any).env.VITE_GEMINI_API_KE
 export const performOCR = async (imageBase64: string): Promise<string> => {
   try {
     const cleanBase64 = imageBase64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
-    
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const visionApiKey = (import.meta as any).env.VITE_GOOGLE_VISION_API_KEY;
+
+    if (visionApiKey) {
+      // Use Google Vision API as requested
+      const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${visionApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [
+            {
+              image: { content: cleanBase64 },
+              features: [{ type: 'DOCUMENT_TEXT_DETECTION' }]
+            }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      if (data.responses && data.responses[0].fullTextAnnotation) {
+        return data.responses[0].fullTextAnnotation.text;
+      }
+      throw new Error("No text detected by Google Vision API");
+    }
+
+    // Fallback to Gemini if no Vision key
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
     const result = await model.generateContent({
       contents: [{
         role: 'user',
@@ -53,8 +78,8 @@ export const augmentEssayText = async (text: string): Promise<string> => {
       
       Return ONLY the cleaned text.
     `;
-    
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
     const result = await model.generateContent(prompt);
 
     return result.response.text() || text;
@@ -67,16 +92,16 @@ export const augmentEssayText = async (text: string): Promise<string> => {
 export const gradeEssay = async (studentText: string, scheme: MarkingScheme) => {
   try {
     const rules = scheme.customRules;
-    
+
     let rulesPrompt = "";
     if (rules) {
       if (rules.strictGrammar) rulesPrompt += "- Enforce strict grammar and spelling checks. Deduct points for errors.\n";
-      
+
       if (rules.penalizeRepetition) {
         const severity = rules.repetitionSeverity || 'Medium';
         rulesPrompt += `- Penalize repetitive phrasing or redundant arguments. Severity: ${severity}.\n`;
       }
-      
+
       if (rules.requireStructure) {
         const structure = rules.structureComponents || 'Introduction, Body, Conclusion';
         rulesPrompt += `- Check for clear essay structure. Specifically look for: ${structure}. Reward if present, deduct if missing.\n`;
@@ -85,7 +110,7 @@ export const gradeEssay = async (studentText: string, scheme: MarkingScheme) => 
       if (rules.toneExpectation) {
         rulesPrompt += `- Expected Tone: ${rules.toneExpectation}. Adjust score based on appropriateness of tone.\n`;
       }
-      
+
       if (rules.additionalInstructions) rulesPrompt += `- Additional Rule: ${rules.additionalInstructions}\n`;
     }
 
@@ -113,7 +138,7 @@ export const gradeEssay = async (studentText: string, scheme: MarkingScheme) => 
     `;
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-1.5-pro-latest',
       generationConfig: {
         responseMimeType: "application/json"
       }

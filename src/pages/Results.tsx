@@ -1,221 +1,258 @@
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { CheckCircle2, XCircle, ChevronLeft, Download, Award, Target, MessageSquare, AlertCircle, Sparkles } from 'lucide-react';
-import { AssessmentResult } from '../types';
-import { diffWords } from 'diff';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { useStore } from '../lib/store';
+import { DownloadCloud, Filter, Loader2, FileSearch, Search } from 'lucide-react';
 
-interface ResultsProps {
-  result: AssessmentResult | null;
-  onBack: () => void;
-}
+const Results: React.FC = () => {
+    const { schoolId } = useStore();
+    const [results, setResults] = useState<any[]>([]);
+    const [classes, setClasses] = useState<{ id: string; class_name: string }[]>([]);
+    const [exams, setExams] = useState<{ id: string; exam_title: string; class_id: string }[]>([]);
 
-const Results: React.FC<ResultsProps> = ({ result, onBack }) => {
-  if (!result) {
+    const [loading, setLoading] = useState(true);
+
+    const [selectedClass, setSelectedClass] = useState('');
+    const [selectedExam, setSelectedExam] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        if (schoolId) {
+            fetchFilters();
+            fetchResults();
+        } else {
+            setLoading(false);
+        }
+    }, [schoolId]);
+
+    const fetchFilters = async () => {
+        if (!schoolId) return;
+        try {
+            const [classRes, examRes] = await Promise.all([
+                supabase.from('classes').select('id, class_name').eq('school_id', schoolId).order('created_at'),
+                supabase.from('exams').select('id, exam_title, class_id').order('created_at')
+            ]);
+
+            if (classRes.data) setClasses(classRes.data);
+            if (examRes.data) setExams(examRes.data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const fetchResults = async () => {
+        if (!schoolId) return;
+        setLoading(true);
+        try {
+            // Need a flat join for easy display:
+            // grading_results -> answer_scripts -> students & exams
+            const { data, error } = await supabase
+                .from('grading_results')
+                .select(`
+          id,
+          score,
+          ai_feedback,
+          answer_scripts (
+            id,
+            students (
+              id,
+              student_name,
+              class_id
+            ),
+            exams (
+              id,
+              exam_title,
+              class_id
+            )
+          )
+        `);
+
+            if (error) throw error;
+
+            if (data) {
+                const formatted = data.map((d: any) => ({
+                    id: d.id,
+                    studentName: d.answer_scripts?.students?.student_name || 'Unknown',
+                    classId: d.answer_scripts?.students?.class_id || '',
+                    examId: d.answer_scripts?.exams?.id || '',
+                    examTitle: d.answer_scripts?.exams?.exam_title || 'Unknown Exam',
+                    score: d.score,
+                    feedback: d.ai_feedback,
+                }));
+                setResults(formatted);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const exportToCSV = () => {
+        if (filteredResults.length === 0) return;
+
+        // Convert to CSV
+        const headers = ['Student Name', 'Exam', 'Score', 'Feedback'];
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + headers.join(",") + "\n"
+            + filteredResults.map(r => `"${r.studentName}","${r.examTitle}","${r.score}","${r.feedback.replace(/"/g, '""')}"`).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `sefaes_results_${new Date().getTime()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    if (!schoolId) {
+        return (
+            <div className="text-center py-20">
+                <h2 className="text-2xl font-bold text-slate-800">No School Registered</h2>
+                <p className="mt-2 text-slate-600">Please register a school first.</p>
+            </div>
+        );
+    }
+
+    const filteredExams = selectedClass
+        ? exams.filter(e => e.class_id === selectedClass)
+        : exams;
+
+    const filteredResults = results.filter(r => {
+        let matchClass = true;
+        let matchExam = true;
+        let matchSearch = true;
+
+        if (selectedClass) {
+            matchClass = r.classId === selectedClass;
+        }
+        if (selectedExam) {
+            matchExam = r.examId === selectedExam;
+        }
+        if (searchQuery) {
+            matchSearch = r.studentName.toLowerCase().includes(searchQuery.toLowerCase());
+        }
+
+        return matchClass && matchExam && matchSearch;
+    });
+
     return (
-      <div className="text-center py-20">
-        <AlertCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-slate-800">No result found</h2>
-        <button onClick={onBack} className="mt-4 text-indigo-600 font-bold hover:underline flex items-center justify-center mx-auto">
-          <ChevronLeft className="w-4 h-4 mr-1" />
-          Go Back
-        </button>
-      </div>
-    );
-  }
+        <div className="max-w-7xl mx-auto space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Grading Results</h2>
+                    <p className="text-slate-500">View, filter, and export student performance data.</p>
+                </div>
+                <div>
+                    <button
+                        onClick={exportToCSV}
+                        className="flex items-center space-x-2 px-6 py-3 bg-white border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                    >
+                        <DownloadCloud className="w-5 h-5" />
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </div>
 
-  const chartData = [
-    { name: 'Awarded', value: result.awardedPoints },
-    { name: 'Remaining', value: result.maxPoints - result.awardedPoints }
-  ];
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row gap-4 items-center">
+                <div className="flex items-center space-x-2 text-slate-700 md:mr-4">
+                    <Filter className="w-5 h-5" />
+                    <span className="font-semibold text-sm">Filters:</span>
+                </div>
 
-  const COLORS = ['#4f46e5', '#e2e8f0'];
-
-  const renderDiff = () => {
-    if (!result.augmentedText) return <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{result.rawOcrText}</p>;
-    
-    const changes = diffWords(result.rawOcrText, result.augmentedText);
-    
-    return (
-      <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-        {changes.map((part, index) => {
-          if (part.added) {
-            return <span key={index} className="bg-green-100 text-green-800 rounded px-0.5">{part.value}</span>;
-          }
-          if (part.removed) {
-            return <span key={index} className="bg-red-100 text-red-800 line-through px-0.5">{part.value}</span>;
-          }
-          return <span key={index}>{part.value}</span>;
-        })}
-      </div>
-    );
-  };
-
-  return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <button 
-            onClick={onBack}
-            className="flex items-center text-slate-500 hover:text-slate-800 mb-2 font-medium transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Assessment
-          </button>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Assessment Results</h2>
-          <p className="text-slate-500">Evaluation for <b>{result.studentName}</b> • {new Date(result.timestamp).toLocaleDateString()}</p>
-        </div>
-        <div className="flex space-x-3">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 transition-colors">
-            <Download className="w-4 h-4" />
-            <span>Export PDF</span>
-          </button>
-          <button className="flex items-center space-x-2 px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md transition-all">
-            <Download className="w-4 h-4" />
-            <span>Save to Cloud</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-8">
-        {/* Score Card */}
-        <div className="md:col-span-1 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center flex flex-col items-center">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">Final Grade</h3>
-            <div className="relative w-48 h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    startAngle={90}
-                    endAngle={450}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                <select
+                    value={selectedClass}
+                    onChange={(e) => {
+                        setSelectedClass(e.target.value);
+                        setSelectedExam(''); // Reset exam when class changes
+                    }}
+                    className="w-full md:w-48 rounded-xl border-slate-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="">All Classes</option>
+                    {classes.map(c => (
+                        <option key={c.id} value={c.id}>{c.class_name}</option>
                     ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-5xl font-black text-slate-900">{result.finalGrade}</span>
-                <span className="text-sm font-bold text-slate-500 mt-1">{result.awardedPoints}/{result.maxPoints} pts</span>
-              </div>
-            </div>
-            
-            <div className="mt-8 grid grid-cols-2 gap-4 w-full">
-              <div className="bg-indigo-50 rounded-xl p-3">
-                <p className="text-xs font-bold text-indigo-700 uppercase mb-1">Similarity</p>
-                <p className="text-2xl font-black text-indigo-900">{result.similarityScore}%</p>
-              </div>
-              <div className="bg-slate-50 rounded-xl p-3">
-                <p className="text-xs font-bold text-slate-500 uppercase mb-1">Max Score</p>
-                <p className="text-2xl font-black text-slate-800">{result.maxPoints}</p>
-              </div>
-            </div>
-          </div>
+                </select>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-              <Target className="w-5 h-5 mr-2 text-indigo-600" />
-              Keyword Analysis
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Matched Concepts</p>
-                <div className="flex flex-wrap gap-2">
-                  {result.matchedKeywords.map((kw, idx) => (
-                    <span key={idx} className="flex items-center px-2 py-1 bg-green-50 text-green-700 rounded text-sm font-medium border border-green-100">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      {kw}
-                    </span>
-                  ))}
-                  {result.matchedKeywords.length === 0 && <p className="text-sm text-slate-400 italic">No matches found.</p>}
+                <select
+                    value={selectedExam}
+                    onChange={(e) => setSelectedExam(e.target.value)}
+                    className="w-full md:w-64 rounded-xl border-slate-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="">All Exams</option>
+                    {filteredExams.map(e => (
+                        <option key={e.id} value={e.id}>{e.exam_title}</option>
+                    ))}
+                </select>
+
+                <div className="w-full md:flex-1 relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by student name..."
+                        className="pl-10 w-full rounded-xl border-slate-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                    />
                 </div>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">Missed Concepts</p>
-                <div className="flex flex-wrap gap-2">
-                  {result.missedKeywords.map((kw, idx) => (
-                    <span key={idx} className="flex items-center px-2 py-1 bg-red-50 text-red-700 rounded text-sm font-medium border border-red-100">
-                      <XCircle className="w-3 h-3 mr-1" />
-                      {kw}
-                    </span>
-                  ))}
-                  {result.missedKeywords.length === 0 && <p className="text-sm text-slate-400 italic">No missed keywords.</p>}
-                </div>
-              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Content Panel */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-slate-800 flex items-center">
-                <MessageSquare className="w-5 h-5 mr-2 text-indigo-600" />
-                AI feedback & Summary
-              </h3>
-              <Sparkles className="w-5 h-5 text-indigo-400" />
-            </div>
-            <div className="p-8">
-              <div className="bg-indigo-50/50 rounded-xl p-6 border border-indigo-100 mb-8">
-                <p className="text-indigo-900 leading-relaxed font-medium italic">
-                  "{result.feedback}"
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-widest border-b border-slate-100 pb-2">
-                    Evaluated Text Analysis
-                  </h4>
-                  <div className="prose prose-slate max-w-none">
-                     {renderDiff()}
-                  </div>
-                </div>
-
-                {result.augmentedText && (
-                  <div className="flex items-start bg-blue-50 border border-blue-100 rounded-lg p-4 space-x-3">
-                    <Sparkles className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
-                    <p className="text-sm text-blue-800">
-                      <b>Text Optimization Enabled:</b> We used an AI-cleaned version for grading to account for OCR errors or illegible handwriting, while preserving the student's original intent.
-                    </p>
-                  </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
+                {loading ? (
+                    <div className="flex justify-center items-center h-full py-20">
+                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                        <span className="ml-3 text-slate-500 font-medium">Loading results...</span>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Name</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Exam</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">Score</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">AI Feedback</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-100">
+                                {filteredResults.length > 0 ? filteredResults.map((result) => (
+                                    <tr key={result.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
+                                            {result.studentName}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
+                                            {result.examTitle}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${result.score >= 50 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                                                }`}>
+                                                {result.score} / 100
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">
+                                            <div className="max-w-md max-h-20 overflow-y-auto pr-2 custom-scrollbar">
+                                                {result.feedback}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-20 text-center">
+                                            <FileSearch className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                            <p className="text-slate-500 font-medium">No results found matching your criteria.</p>
+                                            <button onClick={() => { setSelectedClass(''); setSelectedExam(''); setSearchQuery(''); }} className="mt-2 text-sm text-indigo-600 hover:underline">Clear filters</button>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
-              </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                  <Award className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Core Competency</p>
-                  <p className="text-lg font-extrabold text-slate-900">{result.similarityScore > 70 ? 'High Mastery' : result.similarityScore > 40 ? 'Moderate Mastery' : 'Limited Mastery'}</p>
-                </div>
-             </div>
-             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-                <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-                  <Target className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Semantic Accuracy</p>
-                  <p className="text-lg font-extrabold text-slate-900">{result.similarityScore}% Match</p>
-                </div>
-             </div>
-          </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default Results;
