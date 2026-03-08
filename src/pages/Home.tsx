@@ -23,7 +23,7 @@ const Home: React.FC = () => {
                         </div>
 
                         <div className="hidden md:flex items-center">
-                            <Link to="/register-school" className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+                            <Link to="/signup" className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
                                 Get Started
                             </Link>
                         </div>
@@ -43,7 +43,7 @@ const Home: React.FC = () => {
                         <Link to="/pricing" className="block text-base font-semibold text-slate-700 hover:text-indigo-600">Pricing</Link>
                         <Link to="/blog" className="block text-base font-semibold text-slate-700 hover:text-indigo-600">Blog</Link>
                         <Link to="/login" className="block text-base font-semibold text-slate-700 hover:text-indigo-600">Login</Link>
-                        <Link to="/register-school" className="block w-full text-center px-6 py-3 text-base font-bold text-white bg-indigo-600 rounded-lg">Get Started</Link>
+                        <Link to="/signup" className="block w-full text-center px-6 py-3 text-base font-bold text-white bg-indigo-600 rounded-lg">Get Started</Link>
                     </div>
                 )}
             </nav>
@@ -58,7 +58,7 @@ const Home: React.FC = () => {
                         SEFAES uses advanced OCR, deep AI semantic analysis, and structured marking schemes to grade essays objectively and instantly.
                     </p>
                     <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Link to="/register-school" className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-4 text-lg font-bold text-white bg-indigo-600 rounded-lg shadow-md hover:bg-indigo-700 transition-all">
+                        <Link to="/signup" className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-4 text-lg font-bold text-white bg-indigo-600 rounded-lg shadow-md hover:bg-indigo-700 transition-all">
                             Start Free Trial
                             <ArrowRight className="w-5 h-5 ml-2" />
                         </Link>
@@ -191,7 +191,7 @@ const Home: React.FC = () => {
                     <p className="text-lg md:text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
                         Schools can reduce their grading workload instantly by implementing our AI pipeline. Drop the pen and let the engine do the work.
                     </p>
-                    <Link to="/register-school" className="inline-flex justify-center items-center px-8 py-4 text-lg font-bold text-indigo-600 bg-white rounded-lg shadow-lg hover:bg-slate-50 transition-colors">
+                    <Link to="/signup" className="inline-flex justify-center items-center px-8 py-4 text-lg font-bold text-indigo-600 bg-white rounded-lg shadow-lg hover:bg-slate-50 transition-colors">
                         Get Started
                         <ArrowRight className="w-5 h-5 ml-2" />
                     </Link>

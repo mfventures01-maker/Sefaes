@@ -12,6 +12,7 @@ import Contact from './pages/public/Contact';
 
 // Auth & Portal Selection
 import Login from './pages/auth/Login';
+import SignupPage from './pages/auth/SignupPage';
 import SchoolRegistration from './pages/SchoolRegistration';
 import InstitutionSelector from './pages/InstitutionSelector';
 
@@ -39,6 +40,7 @@ import {
   AnalyticsPage
 } from './pages/PlaceholderPages';
 
+import SetupWizard from './pages/dashboard/SetupWizard';
 import NotFound from './pages/NotFound';
 
 const App: React.FC = () => {
@@ -62,6 +64,8 @@ const App: React.FC = () => {
 
         {/* Portal Layer */}
         <Route path="/portal" element={<InstitutionSelector />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/dashboard/setup" element={<SetupWizard />} />
 
         {/* Operational Layer (Dynamic based on institution type) */}
         <Route path="/portal/:type" element={<PortalLayout />}>
