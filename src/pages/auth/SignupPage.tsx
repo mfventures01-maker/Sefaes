@@ -14,18 +14,17 @@ const SignupPage: React.FC = () => {
 
     const [form, setForm] = useState({
         institutionName: '',
-        institutionType: 'secondary' as const,
-        adminFullName: '',
-        adminEmail: '',
+        institutionType: 'secondary_school' as const,
+        fullName: '',
+        email: '',
         password: '',
         confirmPassword: '',
-        country: '',
     });
 
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setForm({ ...form, [field]: e.target.value });
     };
 
@@ -33,51 +32,64 @@ const SignupPage: React.FC = () => {
         e.preventDefault();
         setError(null);
 
-        // client‑side validation
+        // Client-side validation
         if (!form.institutionName.trim()) return setError('Institution name is required');
-        if (!isValidEmail(form.adminEmail)) return setError('Invalid email address');
+        if (!form.fullName.trim()) return setError('Full name is required');
+        if (!isValidEmail(form.email)) return setError('Invalid email address');
         if (!isStrongPassword(form.password)) return setError('Password must be at least 8 characters');
         if (form.password !== form.confirmPassword) return setError('Passwords do not match');
-        if (!form.country.trim()) return setError('Country is required');
 
         setLoading(true);
         try {
-            // 1️⃣ create auth user
+            // STEP 1: Create Supabase auth user
             const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: form.adminEmail,
+                email: form.email,
                 password: form.password,
                 options: {
                     data: {
-                        full_name: form.adminFullName,
+                        full_name: form.fullName,
                         institution_type: form.institutionType,
                     },
                 },
             });
+
             if (authError) throw authError;
-            const userId = authData?.user?.id;
-            if (!userId) throw new Error('Failed to retrieve newly created user id');
 
-            // 2️⃣ call RPC that creates institution, admin profile and audit log atomically
-            const { data: rpcData, error: rpcError } = await supabase.rpc('create_institution_admin_account', {
-                p_user_id: userId,
-                p_institution_name: form.institutionName,
-                p_institution_type: form.institutionType,
-                p_country: form.country,
-                p_admin_full_name: form.adminFullName,
+            const authUser = authData?.user;
+            console.log("AUTH USER", authUser);
+
+            if (!authUser) throw new Error('Failed to retrieve newly created user');
+
+            // STEP 2: Call RPC create_institution_with_admin
+            // Note: The RPC reads auth.uid() automatically from the session
+            const { data: institutionId, error: rpcError } = await supabase.rpc('create_institution_with_admin', {
+                institution_name: form.institutionName,
+                institution_type: form.institutionType,
+                institution_country: "Nigeria",
+                admin_full_name: form.fullName
             });
-            if (rpcError) throw rpcError;
 
-            const institutionId = (rpcData as any).institution_id as string;
+            console.log("RPC RESULT", institutionId);
+            if (rpcError) {
+                console.log("RPC ERROR", rpcError);
+                throw rpcError;
+            }
+
+            if (!institutionId) {
+                throw new Error('No institution_id returned from creation.');
+            }
+
+            // STEP 5: Store institution_id in app state
             setInstitutionId(institutionId);
             setInstitutionType(form.institutionType);
 
-            // 3️⃣ redirect to setup wizard
-            navigate('/dashboard/setup');
+            // STEP 6: Redirect user to dashboard
+            // Based on App.tsx, the path is /portal/:type/dashboard
+            navigate(`/portal/${form.institutionType}/dashboard`);
+
         } catch (err: any) {
-            // best‑effort cleanup of auth user if something went wrong
-            const uid = (err?.details?.user?.id as string) ?? null;
-            if (uid) await supabase.auth.admin.deleteUser(uid);
-            setError(err?.message ?? 'Unexpected error');
+            console.error("SIGNUP PIPELINE FAILURE:", err);
+            setError(err?.message ?? 'Signup failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -112,9 +124,8 @@ const SignupPage: React.FC = () => {
                                 onChange={handleChange('institutionType')}
                                 className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >
-                                <option value="secondary">Secondary School</option>
+                                <option value="secondary_school">Secondary School</option>
                                 <option value="university">University</option>
-                                <option value="polytechnic">Polytechnic</option>
                                 <option value="corporate">Corporate Training</option>
                             </select>
                         </div>
@@ -123,21 +134,21 @@ const SignupPage: React.FC = () => {
                     {/* Admin name & email */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">Admin Full Name</label>
+                            <label className="block text-sm font-medium text-slate-700">Full Name</label>
                             <input
                                 type="text"
-                                value={form.adminFullName}
-                                onChange={handleChange('adminFullName')}
+                                value={form.fullName}
+                                onChange={handleChange('fullName')}
                                 className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 required
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700">Admin Email</label>
+                            <label className="block text-sm font-medium text-slate-700">Email Address</label>
                             <input
                                 type="email"
-                                value={form.adminEmail}
-                                onChange={handleChange('adminEmail')}
+                                value={form.email}
+                                onChange={handleChange('email')}
                                 className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 required
                             />
@@ -166,18 +177,6 @@ const SignupPage: React.FC = () => {
                                 required
                             />
                         </div>
-                    </div>
-
-                    {/* Country */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Country</label>
-                        <input
-                            type="text"
-                            value={form.country}
-                            onChange={handleChange('country')}
-                            className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            required
-                        />
                     </div>
 
                     {/* Submit */}

@@ -7,7 +7,7 @@ const InstitutionSelector: React.FC = () => {
     const { setInstitutionType } = useInstitutionStore();
     const navigate = useNavigate();
 
-    const handleSelect = (type: 'secondary' | 'university' | 'polytechnic' | 'corporate') => {
+    const handleSelect = (type: 'secondary_school' | 'university' | 'corporate') => {
         setInstitutionType(type);
         navigate(`/portal/${type}/dashboard`);
     };
@@ -27,11 +27,11 @@ const InstitutionSelector: React.FC = () => {
             </div>
 
             <div className="mt-12 sm:mx-auto sm:w-full sm:max-w-4xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4 sm:px-0">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4 sm:px-0">
 
-                    <button onClick={() => handleSelect('secondary')} className="text-left group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-blue-500 hover:-translate-y-1 transition-all">
-                        <div className="flex items-center space-x-6">
-                            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform">
+                    <button onClick={() => handleSelect('secondary_school')} className="text-left group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-blue-500 hover:-translate-y-1 transition-all">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform mb-4">
                                 <BookOpen className="w-8 h-8" />
                             </div>
                             <div>
@@ -42,8 +42,8 @@ const InstitutionSelector: React.FC = () => {
                     </button>
 
                     <button onClick={() => handleSelect('university')} className="text-left group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-indigo-500 hover:-translate-y-1 transition-all">
-                        <div className="flex items-center space-x-6">
-                            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform mb-4">
                                 <GraduationCap className="w-8 h-8" />
                             </div>
                             <div>
@@ -53,21 +53,9 @@ const InstitutionSelector: React.FC = () => {
                         </div>
                     </button>
 
-                    <button onClick={() => handleSelect('polytechnic')} className="text-left group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-emerald-500 hover:-translate-y-1 transition-all">
-                        <div className="flex items-center space-x-6">
-                            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform">
-                                <ShieldCheck className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-900 mb-1">Polytechnics</h3>
-                                <p className="text-slate-500 text-sm">ND and HND assessment and analytical processing layer.</p>
-                            </div>
-                        </div>
-                    </button>
-
                     <button onClick={() => handleSelect('corporate')} className="text-left group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-orange-500 hover:-translate-y-1 transition-all">
-                        <div className="flex items-center space-x-6">
-                            <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-2xl flex flex-shrink-0 items-center justify-center group-hover:scale-110 transition-transform mb-4">
                                 <Building2 className="w-8 h-8" />
                             </div>
                             <div>
@@ -79,11 +67,12 @@ const InstitutionSelector: React.FC = () => {
 
                 </div>
 
-                <div className="mt-12 text-center">
-                    <Link to="/" className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">
-                        ← Return to Home
-                    </Link>
-                </div>
+            </div>
+
+            <div className="mt-12 text-center">
+                <Link to="/" className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors">
+                    ← Return to Home
+                </Link>
             </div>
         </div>
     );

@@ -22,11 +22,13 @@ export const useStore = create<AppState>((set) => ({
     selectedExam: null,
     setInstitutionId: (id) => {
         localStorage.setItem('institutionId', id);
-        set({ institutionId: id });
+        localStorage.setItem('schoolId', id);
+        set({ institutionId: id, schoolId: id });
     },
     setSchoolId: (id) => {
         localStorage.setItem('schoolId', id);
-        set({ schoolId: id });
+        localStorage.setItem('institutionId', id);
+        set({ schoolId: id, institutionId: id });
     },
     setCurrentUser: (user) => set({ currentUser: user }),
     setSelectedClass: (id) => set({ selectedClass: id }),

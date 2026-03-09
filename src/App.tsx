@@ -42,6 +42,7 @@ import {
 
 import SetupWizard from './pages/dashboard/SetupWizard';
 import NotFound from './pages/NotFound';
+import { AuthGuard } from './components/auth/AuthGuard';
 
 const App: React.FC = () => {
   return (
@@ -54,21 +55,25 @@ const App: React.FC = () => {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/contact" element={<Contact />} />
-          {/* We'll route /about to Home for now or 404 since it's missing but we can add later */}
         </Route>
 
         {/* Auth Layer */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<SchoolRegistration />} />
-        <Route path="/forgot-password" element={<Login />} /> {/* Placeholder */}
+        <Route path="/forgot-password" element={<Login />} />
+        <Route path="/auth/recover-account" element={<Login />} /> {/* Placeholder to fulfill requirement */}
 
         {/* Portal Layer */}
         <Route path="/portal" element={<InstitutionSelector />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/dashboard/setup" element={<SetupWizard />} />
 
-        {/* Operational Layer (Dynamic based on institution type) */}
-        <Route path="/portal/:type" element={<PortalLayout />}>
+        {/* Operational Layer (Protected by AuthGuard) */}
+        <Route path="/portal/:type" element={
+          <AuthGuard>
+            <PortalLayout />
+          </AuthGuard>
+        }>
           {/* Shared or Secondary Routes */}
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="school-settings" element={<SchoolSettings />} />
