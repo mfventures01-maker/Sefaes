@@ -56,12 +56,21 @@ const SignupPage: React.FC = () => {
             if (authError) throw authError;
 
             const authUser = authData?.user;
-            console.log("AUTH USER", authUser);
+            console.log("AUTH USER", authData);
 
             if (!authUser) throw new Error('Failed to retrieve newly created user');
 
-            // STEP 2: Call RPC create_institution_with_admin
-            // Note: The RPC reads auth.uid() automatically from the session
+            // STEP 2 — Immediately establish a login session
+            // This is critical because the RPC depends on auth.uid() which requires a session
+            const { data: sessionData, error: loginError } = await supabase.auth.signInWithPassword({
+                email: form.email,
+                password: form.password
+            });
+
+            if (loginError) throw loginError;
+            console.log("SESSION", sessionData);
+
+            // STEP 3 — Call the onboarding RPC after session exists
             const { data: institutionId, error: rpcError } = await supabase.rpc('create_institution_with_admin', {
                 institution_name: form.institutionName,
                 institution_type: form.institutionType,
@@ -84,7 +93,6 @@ const SignupPage: React.FC = () => {
             setInstitutionType(form.institutionType);
 
             // STEP 6: Redirect user to dashboard
-            // Based on App.tsx, the path is /portal/:type/dashboard
             navigate(`/portal/${form.institutionType}/dashboard`);
 
         } catch (err: any) {
