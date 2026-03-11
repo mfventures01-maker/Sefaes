@@ -44,6 +44,9 @@ import SetupWizard from './pages/dashboard/SetupWizard';
 import NotFound from './pages/NotFound';
 import { AuthGuard } from './components/auth/AuthGuard';
 
+import SecondaryWorkspace from './pages/workspace/SecondaryWorkspace';
+import CreateInstitution from './pages/onboarding/CreateInstitution';
+
 const App: React.FC = () => {
   return (
     <BrowserRouter>
@@ -61,12 +64,16 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<SchoolRegistration />} />
         <Route path="/forgot-password" element={<Login />} />
-        <Route path="/auth/recover-account" element={<Login />} /> {/* Placeholder to fulfill requirement */}
+        <Route path="/auth/recover-account" element={<Login />} />
 
-        {/* Portal Layer */}
+        {/* Portal Layer / Workspace Selection */}
         <Route path="/portal" element={<InstitutionSelector />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/dashboard/setup" element={<SetupWizard />} />
+
+        {/* Deterministic Onboarding Pipeline & Guards */}
+        <Route path="/workspace/secondary_school" element={<SecondaryWorkspace />} />
+        <Route path="/onboarding/create-institution" element={<CreateInstitution />} />
 
         {/* Operational Layer (Protected by AuthGuard) */}
         <Route path="/portal/:type" element={

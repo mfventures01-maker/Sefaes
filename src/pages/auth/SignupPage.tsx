@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { useInstitutionStore } from '../../store/useInstitutionStore';
 import { ArrowRight } from 'lucide-react';
 
 // Validation helpers
@@ -10,11 +9,8 @@ const isStrongPassword = (pwd: string) => pwd.length >= 8;
 
 const SignupPage: React.FC = () => {
     const navigate = useNavigate();
-    const { setInstitutionType, setInstitutionId } = useInstitutionStore();
 
     const [form, setForm] = useState({
-        institutionName: '',
-        institutionType: 'secondary_school' as const,
         fullName: '',
         email: '',
         password: '',
@@ -24,7 +20,7 @@ const SignupPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
         setForm({ ...form, [field]: e.target.value });
     };
 
@@ -33,7 +29,6 @@ const SignupPage: React.FC = () => {
         setError(null);
 
         // Client-side validation
-        if (!form.institutionName.trim()) return setError('Institution name is required');
         if (!form.fullName.trim()) return setError('Full name is required');
         if (!isValidEmail(form.email)) return setError('Invalid email address');
         if (!isStrongPassword(form.password)) return setError('Password must be at least 8 characters');
@@ -48,7 +43,6 @@ const SignupPage: React.FC = () => {
                 options: {
                     data: {
                         full_name: form.fullName,
-                        institution_type: form.institutionType,
                     },
                 },
             });
@@ -61,7 +55,6 @@ const SignupPage: React.FC = () => {
             if (!authUser) throw new Error('Failed to retrieve newly created user');
 
             // STEP 2 — Immediately establish a login session
-            // This is critical because the RPC depends on auth.uid() which requires a session
             const { data: sessionData, error: loginError } = await supabase.auth.signInWithPassword({
                 email: form.email,
                 password: form.password
@@ -70,30 +63,9 @@ const SignupPage: React.FC = () => {
             if (loginError) throw loginError;
             console.log("SESSION", sessionData);
 
-            // STEP 3 — Call the onboarding RPC after session exists
-            const { data: institutionId, error: rpcError } = await supabase.rpc('create_institution_with_admin', {
-                institution_name: form.institutionName,
-                institution_type: form.institutionType,
-                institution_country: "Nigeria",
-                admin_full_name: form.fullName
-            });
-
-            console.log("RPC RESULT", institutionId);
-            if (rpcError) {
-                console.log("RPC ERROR", rpcError);
-                throw rpcError;
-            }
-
-            if (!institutionId) {
-                throw new Error('No institution_id returned from creation.');
-            }
-
-            // STEP 5: Store institution_id in app state
-            setInstitutionId(institutionId);
-            setInstitutionType(form.institutionType);
-
-            // STEP 6: Redirect user to dashboard
-            navigate(`/portal/${form.institutionType}/dashboard`);
+            // Redirect user to workspace selection portal
+            // The workspace guard will catch NULL institution_ids and guide them to onboarding
+            navigate(`/portal`);
 
         } catch (err: any) {
             console.error("SIGNUP PIPELINE FAILURE:", err);
@@ -113,32 +85,6 @@ const SignupPage: React.FC = () => {
                     </div>
                 )}
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Institution name & type */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Institution Name</label>
-                            <input
-                                type="text"
-                                value={form.institutionName}
-                                onChange={handleChange('institutionName')}
-                                className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Institution Type</label>
-                            <select
-                                value={form.institutionType}
-                                onChange={handleChange('institutionType')}
-                                className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            >
-                                <option value="secondary_school">Secondary School</option>
-                                <option value="university">University</option>
-                                <option value="corporate">Corporate Training</option>
-                            </select>
-                        </div>
-                    </div>
-
                     {/* Admin name & email */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>

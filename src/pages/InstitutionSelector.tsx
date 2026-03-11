@@ -9,7 +9,11 @@ const InstitutionSelector: React.FC = () => {
 
     const handleSelect = (type: 'secondary_school' | 'university' | 'corporate') => {
         setInstitutionType(type);
-        navigate(`/portal/${type}/dashboard`);
+        if (type === 'secondary_school') {
+            navigate('/workspace/secondary_school');
+        } else {
+            navigate(`/portal/${type}/dashboard`);
+        }
     };
 
     return (
