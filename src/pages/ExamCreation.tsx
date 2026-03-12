@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
-import { FileText, Loader2, PlusCircle, Check } from 'lucide-react';
+import { FileText, Loader2, PlusCircle, Check, Trash2 } from 'lucide-react';
 import { MarkingScheme } from '../types';
 
 const ExamCreation: React.FC = () => {
@@ -20,6 +20,23 @@ const ExamCreation: React.FC = () => {
         exam_date: '',
         marking_scheme: ''
     });
+
+    const [rubric, setRubric] = useState<{ criterion: string; marks: number }[]>([
+        { criterion: '', marks: 5 }
+    ]);
+
+    const addCriterion = () => setRubric([...rubric, { criterion: '', marks: 5 }]);
+    const removeCriterion = (index: number) => {
+        const newRubric = [...rubric];
+        newRubric.splice(index, 1);
+        setRubric(newRubric);
+    };
+
+    const updateCriterion = (index: number, field: 'criterion' | 'marks', value: any) => {
+        const newRubric = [...rubric];
+        newRubric[index] = { ...newRubric[index], [field]: value };
+        setRubric(newRubric);
+    };
 
     useEffect(() => {
         if (!schoolId) return;
@@ -41,7 +58,7 @@ const ExamCreation: React.FC = () => {
         fetchDropdowns();
     }, [schoolId]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
@@ -54,13 +71,13 @@ const ExamCreation: React.FC = () => {
         setError(null);
 
         try {
-            // Validate marking scheme is valid JSON
-            let parsedScheme;
-            try {
-                parsedScheme = JSON.parse(formData.marking_scheme);
-            } catch (err) {
-                throw new Error('Marking scheme must be valid JSON.');
-            }
+            // Simplified Rubric Structure for Gemini
+            const markingScheme = {
+                rubric: rubric.filter(r => r.criterion.trim() !== ''),
+                maxScore: rubric.reduce((acc, curr) => acc + Number(curr.marks), 0)
+            };
+
+            if (markingScheme.rubric.length === 0) throw new Error('Add at least one rubric criterion');
 
             const { error: insertError } = await supabase
                 .from('exams')
@@ -69,7 +86,7 @@ const ExamCreation: React.FC = () => {
                     subject_id: formData.subject_id,
                     class_id: formData.class_id,
                     exam_date: formData.exam_date,
-                    marking_scheme: parsedScheme
+                    marking_scheme: markingScheme
                 }]);
 
             if (insertError) throw insertError;
@@ -82,6 +99,7 @@ const ExamCreation: React.FC = () => {
                 exam_date: '',
                 marking_scheme: ''
             });
+            setRubric([{ criterion: '', marks: 5 }]);
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'Error creating exam.');
@@ -173,9 +191,6 @@ const ExamCreation: React.FC = () => {
                                 className="w-full rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="">Select Subject...</option>
-                                <option value="temp-english-001">English Language</option>
-                                <option value="temp-math-001">Mathematics</option>
-                                <option value="temp-science-001">Science</option>
                                 {subjects.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
@@ -183,21 +198,54 @@ const ExamCreation: React.FC = () => {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Marking Scheme (JSON format)</label>
-                        <textarea
-                            name="marking_scheme"
-                            required
-                            rows={8}
-                            value={formData.marking_scheme}
-                            onChange={handleChange}
-                            className="w-full rounded-xl border-slate-300 border p-3 font-mono text-sm focus:ring-2 focus:ring-indigo-500"
-                            placeholder={`{
-  "referenceAnswer": "The main idea is...",
-  "keywords": ["photosynthesis", "sunlight", "chlorophyll"],
-  "maxScore": 10
-}`}
-                        />
+                    <div className="border-t border-slate-100 pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <label className="block text-sm font-bold text-slate-700">Marking Rubric</label>
+                            <button
+                                type="button"
+                                onClick={addCriterion}
+                                className="text-sm font-bold text-indigo-600 hover:text-indigo-700 flex items-center"
+                            >
+                                <PlusCircle className="w-4 h-4 mr-1" />
+                                Add Criterion
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {rubric.map((r, index) => (
+                                <div key={index} className="flex items-center space-x-4 animate-in fade-in duration-300">
+                                    <div className="flex-1">
+                                        <input
+                                            type="text"
+                                            placeholder="Criterion Name (e.g. Content)"
+                                            value={r.criterion}
+                                            onChange={(e) => updateCriterion(index, 'criterion', e.target.value)}
+                                            className="w-full rounded-xl border-slate-300 border p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <div className="w-32">
+                                        <input
+                                            type="number"
+                                            placeholder="Max Marks"
+                                            value={r.marks}
+                                            onChange={(e) => updateCriterion(index, 'marks', e.target.value)}
+                                            className="w-full rounded-xl border-slate-300 border p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeCriterion(index)}
+                                        className="text-slate-400 hover:text-red-500 p-2"
+                                        disabled={rubric.length === 1}
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 text-right text-sm font-bold text-slate-500">
+                            Total Marks: {rubric.reduce((acc, curr) => acc + Number(curr.marks), 0)}
+                        </div>
                     </div>
 
                     <div className="flex justify-end pt-4">
@@ -206,7 +254,7 @@ const ExamCreation: React.FC = () => {
                             disabled={loading}
                             className="flex items-center space-x-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                             <span>Create Exam</span>
                         </button>
                     </div>
@@ -215,5 +263,6 @@ const ExamCreation: React.FC = () => {
         </div>
     );
 };
+
 
 export default ExamCreation;

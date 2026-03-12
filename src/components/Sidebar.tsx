@@ -36,16 +36,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
     const menuMap = {
         secondary: [
             { label: 'Dashboard', path: '/portal/secondary/dashboard', icon: LayoutDashboard },
-            { label: 'Classes', path: '/portal/secondary/classes', icon: Users },
             { label: 'Students', path: '/portal/secondary/students', icon: GraduationCap },
-            { label: 'Subjects', path: '/portal/secondary/subjects', icon: BookOpen },
             { label: 'Exams', path: '/portal/secondary/exams', icon: FileText },
             { label: 'Scripts', path: '/portal/secondary/scripts', icon: CheckSquare },
-            { label: 'Grading Queue', path: '/portal/secondary/grading', icon: Target },
+            { label: 'Grading', path: '/portal/secondary/grading', icon: Target },
             { label: 'Results', path: '/portal/secondary/results', icon: FileBarChart },
-            { label: 'Analytics', path: '/portal/secondary/analytics', icon: BarChart },
-            { label: 'Marking Schemes', path: '/portal/secondary/marking-schemes', icon: BookOpen },
-            { label: 'School Settings', path: '/portal/secondary/school-settings', icon: Settings },
         ],
         university: [
             { label: 'Dashboard', path: '/portal/university/dashboard', icon: LayoutDashboard },

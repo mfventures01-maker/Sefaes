@@ -12,6 +12,7 @@ interface StudentRow {
 
 const StudentUpload: React.FC = () => {
     const { schoolId } = useStore();
+    const [selectedClassId, setSelectedClassId] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -36,23 +37,31 @@ const StudentUpload: React.FC = () => {
     };
 
     const handleUpload = () => {
-        if (!file) return;
+        if (!file || !selectedClassId) {
+            setError('Please select a class and an upload file.');
+            return;
+        }
 
         setIsProcessing(true);
         setError(null);
         setSuccessCount(0);
 
-        Papa.parse<StudentRow>(file, {
+        Papa.parse<any>(file, {
             header: true,
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
-                    const validData = results.data.filter(
-                        (row) => row.student_name && row.student_id && row.class_id
-                    );
+                    const validData = results.data
+                        .filter((row) => row.student_name && row.student_id)
+                        .map((row) => ({
+                            student_name: row.student_name,
+                            student_id: row.student_id,
+                            class_id: selectedClassId,
+                            school_id: schoolId
+                        }));
 
                     if (validData.length === 0) {
-                        throw new Error('No valid rows found. Ensure CSV has headers: student_name, student_id, class_id');
+                        throw new Error('No valid rows found. Ensure CSV has headers: student_name, student_id');
                     }
 
                     const { error: insertError } = await supabase
@@ -89,24 +98,26 @@ const StudentUpload: React.FC = () => {
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
             <div>
-                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Student Roster Upload</h2>
+                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Student Roster Import</h2>
                 <p className="text-slate-500">Bulk upload students via CSV to classes.</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                <div className="mb-8 p-4 bg-indigo-50 text-indigo-800 rounded-xl border border-indigo-100">
-                    <h4 className="font-bold flex items-center"><AlertTriangle className="w-5 h-5 mr-2" /> Note on Class IDs</h4>
-                    <p className="mt-2 text-sm max-h-32 overflow-y-auto">
-                        Please copy the specific class ID for the `class_id` column in your CSV.
-                        <br /><br />
-                        <strong>Your Classes:</strong><br />
-                        {classes.length === 0 ? 'No classes found.' : classes.map(c => (
-                            <span key={c.id} className="block mt-1 font-mono text-xs">{c.class_name}: <span className="font-bold">{c.id}</span></span>
+                <div className="mb-8">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Target Class</label>
+                    <select
+                        value={selectedClassId}
+                        onChange={(e) => setSelectedClassId(e.target.value)}
+                        className="w-full md:w-1/2 rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="">Choose Class...</option>
+                        {classes.map(c => (
+                            <option key={c.id} value={c.id}>{c.class_name}</option>
                         ))}
-                    </p>
+                    </select>
                 </div>
 
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center transition-colors hover:border-indigo-400 bg-slate-50">
+                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center transition-colors hover:border-indigo-400 bg-slate-50 relative">
                     {file ? (
                         <div className="space-y-4 py-4">
                             <FileText className="w-12 h-12 text-indigo-500 mx-auto" />
@@ -128,7 +139,7 @@ const StudentUpload: React.FC = () => {
                             />
                             <Upload className="w-12 h-12 text-indigo-300 mx-auto" />
                             <p className="text-lg font-medium text-slate-900">Drop CSV file here</p>
-                            <p className="text-slate-500">Headers: student_name, student_id, class_id</p>
+                            <p className="text-slate-500">Required Headers: student_name, student_id</p>
                         </div>
                     )}
                 </div>
@@ -149,7 +160,7 @@ const StudentUpload: React.FC = () => {
                 <div className="mt-8 flex justify-end">
                     <button
                         onClick={handleUpload}
-                        disabled={!file || isProcessing}
+                        disabled={!file || !selectedClassId || isProcessing}
                         className="flex items-center space-x-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? (
@@ -160,7 +171,7 @@ const StudentUpload: React.FC = () => {
                         ) : (
                             <>
                                 <Upload className="w-5 h-5" />
-                                <span>Upload CSV</span>
+                                <span>Import Students</span>
                             </>
                         )}
                     </button>
@@ -169,5 +180,6 @@ const StudentUpload: React.FC = () => {
         </div>
     );
 };
+
 
 export default StudentUpload;

@@ -41,6 +41,7 @@ import {
 } from './pages/PlaceholderPages';
 
 import SetupWizard from './pages/dashboard/SetupWizard';
+import SchoolSetup from './pages/dashboard/SchoolSetup';
 import NotFound from './pages/NotFound';
 import { AuthGuard } from './components/auth/AuthGuard';
 
@@ -83,6 +84,7 @@ const App: React.FC = () => {
         }>
           {/* Shared or Secondary Routes */}
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="setup" element={<SchoolSetup />} />
           <Route path="school-settings" element={<SchoolSettings />} />
           <Route path="classes" element={<ClassSetup />} />
           <Route path="subjects" element={<SubjectManagement />} />

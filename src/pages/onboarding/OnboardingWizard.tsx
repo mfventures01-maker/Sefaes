@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onboardingService, InstitutionPayload, SchoolPayload, TeacherPayload, StudentPayload } from '../../services/onboardingService';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
@@ -39,7 +39,7 @@ type OnboardingState =
     | 'STUDENTS_ENROLLED'
     | 'ONBOARDING_COMPLETE';
 
-export const CreateInstitution: React.FC = () => {
+export const OnboardingWizard: React.FC = () => {
     const navigate = useNavigate();
     const { setInstitutionId, setInstitutionType, setSchoolId } = useInstitutionStore();
 
@@ -204,7 +204,7 @@ export const CreateInstitution: React.FC = () => {
     const renderStepIndicator = () => (
         <div className="flex items-center justify-between mb-12 px-2 max-w-4xl mx-auto overflow-x-auto pb-4">
             {steps.map((step, idx) => {
-                const isCompleted = steps.findIndex(s => s.id === state) > idx || (state === 'ONBOARDING_COMPLETE');
+                const isCompleted = steps.findIndex(s => s.id === state) > idx;
                 const isActive = step.id === state;
                 const Icon = step.icon;
 
@@ -257,11 +257,11 @@ export const CreateInstitution: React.FC = () => {
                             <p className="text-xs text-slate-500 font-medium">Teachers</p>
                         </div>
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                            <p className="text-2xl font-bold text-slate-900">{classes.length || '6'}</p>
+                            <p className="text-2xl font-bold text-slate-900">{classes.length}</p>
                             <p className="text-xs text-slate-500 font-medium">Classes</p>
                         </div>
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                            <p className="text-2xl font-bold text-slate-900">{classSubjects.length || '96'}</p>
+                            <p className="text-2xl font-bold text-slate-900">{classSubjects.length}</p>
                             <p className="text-xs text-slate-500 font-medium">Subjects</p>
                         </div>
                     </div>
@@ -508,7 +508,7 @@ export const CreateInstitution: React.FC = () => {
                                         <option value="">Select a Subject Mapping</option>
                                         {classSubjects.map((cs: any) => (
                                             <option key={cs.id} value={cs.id}>
-                                                {cs.subject_catalog?.name || 'Subject'} ({cs.classes?.name || 'Class'})
+                                                {cs.subject_catalog.name} ({cs.classes.name})
                                             </option>
                                         ))}
                                     </select>
@@ -636,5 +636,4 @@ export const CreateInstitution: React.FC = () => {
     );
 };
 
-export default CreateInstitution;
-
+export default OnboardingWizard;
