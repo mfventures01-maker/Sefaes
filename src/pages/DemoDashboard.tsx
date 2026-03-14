@@ -67,14 +67,20 @@ const DemoDashboard: React.FC = () => {
     useEffect(() => {
         if (!schoolId) return;
         const loadInitialData = async () => {
-            const [subjRes, classRes, studentRes] = await Promise.all([
+            const [subjRes, classRes] = await Promise.all([
                 supabase.from('subjects').select('*'),
-                supabase.from('classes').select('*').eq('school_id', schoolId),
-                supabase.from('students').select('*').eq('school_id', schoolId)
+                supabase.from('classes').select('id, name, school_id').eq('school_id', schoolId)
             ]);
+
             if (subjRes.data) setSubjects(subjRes.data);
-            if (classRes.data) setClasses(classRes.data);
-            if (studentRes.data) setStudents(studentRes.data);
+            if (classRes.data) {
+                setClasses(classRes.data);
+                const { data: studentData } = await supabase
+                    .from('students')
+                    .select('id, first_name, last_name, class_id')
+                    .eq('class_id', classRes.data[0]?.id || '');
+                if (studentData) setStudents(studentData);
+            }
         };
         loadInitialData();
     }, [schoolId]);
@@ -122,15 +128,16 @@ const DemoDashboard: React.FC = () => {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !createdExamId) return;
         setGovernorError(null);
-        const uploadFiles = Array.from(e.target.files);
+        const uploadFiles: File[] = Array.from(e.target.files);
         setFiles(uploadFiles);
         setIsUploading(true);
         const results: { student: string, text: string }[] = [];
 
         try {
             for (let i = 0; i < uploadFiles.length; i++) {
-                const student = students[i] || { student_name: `Student ${i + 1}`, id: 'mock-id' };
-                setCurrentStep(`Running OCR for ${student.student_name}...`);
+                const student = students[i] || { first_name: 'Student', last_name: `${i + 1}`, id: 'mock-id' };
+                const studentFullName = `${student.first_name} ${student.last_name}`;
+                setCurrentStep(`Running OCR for ${studentFullName}...`);
                 const base64 = await toBase64(uploadFiles[i]);
 
                 const { data, error } = await supabase.functions.invoke('ocr-script', {
@@ -145,7 +152,7 @@ const DemoDashboard: React.FC = () => {
                 }
 
                 const text = data.text;
-                results.push({ student: student.student_name, text });
+                results.push({ student: studentFullName, text });
 
                 await supabase.from('answer_scripts').insert({
                     student_id: student.id,
@@ -193,7 +200,7 @@ const DemoDashboard: React.FC = () => {
             while (!isDone) {
                 const { data: resultsData } = await supabase
                     .from('grading_results')
-                    .select('*, answer_scripts(students(student_name))')
+                    .select('*, answer_scripts(students(first_name, last_name))')
                     .in('answer_script_id', scripts.map(s => s.id));
 
                 if (resultsData) {
@@ -221,8 +228,8 @@ const DemoDashboard: React.FC = () => {
     };
 
     // Analytics Data Transformation
-    const analyticsData = results.map(r => ({
-        name: r.answer_scripts?.students?.student_name || 'Student',
+    const analyticsData = (results ?? []).map(r => ({
+        name: r.answer_scripts?.students ? `${r.answer_scripts.students.first_name} ${r.answer_scripts.students.last_name}` : 'Student',
         score: parseFloat(r.score)
     }));
 
@@ -288,7 +295,7 @@ const DemoDashboard: React.FC = () => {
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-1">Class</label>
                                 <select className="w-full bg-slate-50 border-none rounded-xl p-3 text-sm font-bold"
                                     onChange={e => setExamData({ ...examData, class_id: e.target.value })}>
-                                    {classes.map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
+                                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -358,7 +365,7 @@ const DemoDashboard: React.FC = () => {
                                             </div>
                                             <img src={URL.createObjectURL(f)} className="w-full h-full object-cover grayscale opacity-50" />
                                         </div>
-                                        <span className="text-xs font-bold text-slate-500 mt-2 uppercase tracking-widest">{students[i]?.student_name || `Page ${i + 1}`}</span>
+                                        <span className="text-xs font-bold text-slate-500 mt-2 uppercase tracking-widest">{students[i] ? `${students[i].first_name} ${students[i].last_name}` : `Page ${i + 1}`}</span>
                                     </div>
                                 ))}
                             </div>
@@ -492,7 +499,7 @@ const DemoDashboard: React.FC = () => {
                                 <tbody className="divide-y divide-slate-50">
                                     {results.map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors animate-in slide-in-from-left duration-300" style={{ animationDelay: `${i * 100}ms` }}>
-                                            <td className="px-6 py-5 font-bold text-slate-700">{r.answer_scripts?.students?.student_name}</td>
+                                            <td className="px-6 py-5 font-bold text-slate-700">{r.answer_scripts?.students ? `${r.answer_scripts.students.first_name} ${r.answer_scripts.students.last_name}` : 'Unknown'}</td>
                                             <td className="px-6 py-5 text-center font-black">
                                                 <span className={`px-3 py-1 rounded-full ${r.score >= 70 ? 'bg-emerald-50 text-emerald-600' :
                                                     r.score >= 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'

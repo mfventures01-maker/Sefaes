@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { BookOpen, GraduationCap, CheckCircle, TrendingUp } from 'lucide-react';
+import { BookOpen, GraduationCap, CheckCircle, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { schoolId } = useStore();
@@ -40,7 +40,8 @@ const Dashboard: React.FC = () => {
           answer_scripts (
             id,
             students (
-              student_name
+              first_name,
+              last_name
             ),
             exams (
               exam_title,
@@ -56,7 +57,7 @@ const Dashboard: React.FC = () => {
 
       const formatted = safeData.map((d: any) => ({
         id: d.id,
-        studentName: d.answer_scripts?.students?.student_name || 'Unknown',
+        studentName: d.answer_scripts?.students ? `${d.answer_scripts.students.first_name} ${d.answer_scripts.students.last_name}` : 'Unknown',
         examTitle: d.answer_scripts?.exams?.exam_title || 'Unknown Exam',
         score: d.score,
         feedback: d.ai_feedback,
@@ -278,7 +279,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
-import { Loader2, AlertCircle } from 'lucide-react';
+
 
 
 export default Dashboard;

@@ -5,9 +5,12 @@ import { useStore } from '../lib/store';
 import { Upload, FileText, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface StudentRow {
-    student_name: string;
-    student_id: string; // the school's internal registration number
+    first_name: string;
+    last_name: string;
+    gender: 'male' | 'female';
+    student_number: string;
     class_id: string;
+    date_of_birth?: string;
 }
 
 const StudentUpload: React.FC = () => {
@@ -17,13 +20,13 @@ const StudentUpload: React.FC = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successCount, setSuccessCount] = useState<number>(0);
-    const [classes, setClasses] = useState<{ id: string; class_name: string }[]>([]);
+    const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
 
     useEffect(() => {
         const fetchClasses = async () => {
             if (!schoolId) return;
-            const { data } = await supabase.from('classes').select('id, class_name').eq('school_id', schoolId);
-            if (data) setClasses(data);
+            const { data } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
+            if (data) setClasses(data as any);
         };
         fetchClasses();
     }, [schoolId]);
@@ -52,16 +55,18 @@ const StudentUpload: React.FC = () => {
             complete: async (results) => {
                 try {
                     const validData = results.data
-                        .filter((row) => row.student_name && row.student_id)
+                        .filter((row) => row.first_name && row.last_name && row.student_number)
                         .map((row) => ({
-                            student_name: row.student_name,
-                            student_id: row.student_id,
-                            class_id: selectedClassId,
-                            school_id: schoolId
+                            first_name: row.first_name,
+                            last_name: row.last_name,
+                            gender: row.gender || 'male',
+                            student_number: row.student_number,
+                            date_of_birth: row.date_of_birth,
+                            class_id: selectedClassId
                         }));
 
                     if (validData.length === 0) {
-                        throw new Error('No valid rows found. Ensure CSV has headers: student_name, student_id');
+                        throw new Error('No valid rows found. Ensure CSV has headers: first_name, last_name, student_number, gender, date_of_birth');
                     }
 
                     const { error: insertError } = await supabase
@@ -112,7 +117,7 @@ const StudentUpload: React.FC = () => {
                     >
                         <option value="">Choose Class...</option>
                         {(classes ?? []).map(c => (
-                            <option key={c.id} value={c.id}>{c.class_name}</option>
+                            <option key={c.id} value={c.id}>{(c as any).name}</option>
                         ))}
                     </select>
                 </div>
@@ -139,7 +144,7 @@ const StudentUpload: React.FC = () => {
                             />
                             <Upload className="w-12 h-12 text-indigo-300 mx-auto" />
                             <p className="text-lg font-medium text-slate-900">Drop CSV file here</p>
-                            <p className="text-slate-500">Required Headers: student_name, student_id</p>
+                            <p className="text-slate-500">Required Headers: first_name, last_name, student_number, gender, date_of_birth</p>
                         </div>
                     )}
                 </div>

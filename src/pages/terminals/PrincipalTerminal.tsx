@@ -47,7 +47,7 @@ const PrincipalTerminal: React.FC = () => {
         try {
             // Fetch stats in parallel
             const [students, teachers, exams, results] = await Promise.all([
-                supabase.from('students').select('id', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('students').select('id, classes!inner(school_id)', { count: 'exact', head: true }).eq('classes.school_id', schoolId),
                 supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('school_id', schoolId),
                 supabase.from('exams').select('id', { count: 'exact', head: true }).eq('school_id', schoolId),
                 supabase.from('grading_results').select('score').eq('answer_scripts.school_id', schoolId)

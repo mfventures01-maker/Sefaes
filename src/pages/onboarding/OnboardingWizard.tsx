@@ -121,10 +121,12 @@ export const OnboardingWizard: React.FC = () => {
     });
 
     const [studentData, setStudentData] = useState<StudentPayload>({
-        school_id: '',
-        student_name: '',
+        first_name: '',
+        last_name: '',
+        gender: 'male',
+        student_number: '',
         class_id: '',
-        admission_number: ''
+        date_of_birth: ''
     });
 
     const [classes, setClasses] = useState<any[]>([]);
@@ -632,25 +634,47 @@ export const OnboardingWizard: React.FC = () => {
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">Student Full Name</label>
+                                    <label className="text-sm font-bold text-slate-700 ml-1">First Name</label>
                                     <input
                                         required
                                         className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                        value={studentData.student_name}
-                                        onChange={e => setStudentData({ ...studentData, student_name: e.target.value })}
-                                        placeholder="John Doe"
+                                        value={studentData.first_name}
+                                        onChange={e => setStudentData({ ...studentData, first_name: e.target.value })}
+                                        placeholder="Chinedu"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">Admission Number</label>
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Last Name</label>
+                                    <input
+                                        required
+                                        className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                        value={studentData.last_name}
+                                        onChange={e => setStudentData({ ...studentData, last_name: e.target.value })}
+                                        placeholder="Okafor"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Gender</label>
+                                    <select
+                                        required
+                                        className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                        value={studentData.gender}
+                                        onChange={e => setStudentData({ ...studentData, gender: e.target.value as any })}
+                                    >
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Student Number</label>
                                     <div className="relative group">
                                         <Hash className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
                                         <input
                                             required
                                             className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                            value={studentData.admission_number}
-                                            onChange={e => setStudentData({ ...studentData, admission_number: e.target.value })}
-                                            placeholder="STU/2026/001"
+                                            value={studentData.student_number}
+                                            onChange={e => setStudentData({ ...studentData, student_number: e.target.value })}
+                                            placeholder="STU-00023"
                                         />
                                     </div>
                                 </div>
@@ -660,13 +684,26 @@ export const OnboardingWizard: React.FC = () => {
                                         required
                                         className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                                         value={studentData.class_id}
-                                        onChange={e => setStudentData({ ...studentData, class_id: e.target.value, school_id: schoolId || '' })}
+                                        onChange={e => setStudentData({ ...studentData, class_id: e.target.value })}
                                     >
                                         <option value="">Select a Class</option>
                                         {(classes ?? []).map((c: any) => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
                                     </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Date of Birth</label>
+                                    <div className="relative group">
+                                        <Calendar className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                        <input
+                                            required
+                                            type="date"
+                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                            value={studentData.date_of_birth}
+                                            onChange={e => setStudentData({ ...studentData, date_of_birth: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             <div className="pt-6">

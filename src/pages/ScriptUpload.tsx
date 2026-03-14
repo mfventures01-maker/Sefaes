@@ -7,7 +7,7 @@ import { performOCR } from '../services/geminiService';
 const ScriptUpload: React.FC = () => {
     const { schoolId } = useStore();
     const [exams, setExams] = useState<{ id: string; exam_title: string; class_id: string }[]>([]);
-    const [students, setStudents] = useState<{ id: string; student_name: string; class_id: string }[]>([]);
+    const [students, setStudents] = useState<{ id: string; first_name: string; last_name: string; class_id: string }[]>([]);
 
     const [selectedExamId, setSelectedExamId] = useState('');
     const [selectedStudentId, setSelectedStudentId] = useState('');
@@ -22,7 +22,7 @@ const ScriptUpload: React.FC = () => {
         const fetchData = async () => {
             const [examsRes, studentsRes] = await Promise.all([
                 supabase.from('exams').select('id, exam_title, class_id'),
-                supabase.from('students').select('id, student_name, class_id')
+                supabase.from('students').select('id, first_name, last_name, class_id')
             ]);
             if (examsRes.data) setExams(examsRes.data);
             if (studentsRes.data) setStudents(studentsRes.data);
@@ -153,7 +153,7 @@ const ScriptUpload: React.FC = () => {
                         >
                             <option value="">Choose Student...</option>
                             {(filteredStudents ?? []).map(s => (
-                                <option key={s.id} value={s.id}>{s.student_name}</option>
+                                <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
                             ))}
                         </select>
                     </div>

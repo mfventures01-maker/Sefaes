@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, CheckCircle2, ShieldCore, BookOpen, GraduationCap, Building2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Shield, BookOpen, GraduationCap, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Home: React.FC = () => {
@@ -115,7 +115,7 @@ const Home: React.FC = () => {
 
                         <Link to="/portal" className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-indigo-500 hover:-translate-y-1 transition-all">
                             <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <ShieldCore className="w-7 h-7" />
+                                <Shield className="w-7 h-7" />
                             </div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">Polytechnics</h3>
                             <p className="text-slate-500 text-sm">Streamlined assessment and reporting for Nd1 through HND2 programs.</p>

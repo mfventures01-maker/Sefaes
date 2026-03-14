@@ -109,10 +109,12 @@ CREATE TABLE IF NOT EXISTS teachers (
 -- 11. Students Table
 CREATE TABLE IF NOT EXISTS students (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
-    student_name TEXT NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    gender TEXT,
+    student_number TEXT UNIQUE,
     class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
-    admission_number TEXT UNIQUE,
+    date_of_birth DATE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

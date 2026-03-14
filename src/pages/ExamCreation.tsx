@@ -6,7 +6,7 @@ import { MarkingScheme } from '../types';
 
 const ExamCreation: React.FC = () => {
     const { schoolId } = useStore();
-    const [classes, setClasses] = useState<{ id: string; class_name: string }[]>([]);
+    const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
     const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
 
     const [loading, setLoading] = useState(false);
@@ -176,7 +176,7 @@ const ExamCreation: React.FC = () => {
                             >
                                 <option value="">Select Class...</option>
                                 {(classes ?? []).map(c => (
-                                    <option key={c.id} value={c.id}>{c.class_name}</option>
+                                    <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
                         </div>

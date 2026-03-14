@@ -8,13 +8,13 @@ interface SubjectData {
     name: string;
     class_id: string;
     classes?: {
-        class_name: string;
+        name: string;
     };
 }
 
 interface ClassData {
     id: string;
-    class_name: string;
+    name: string;
 }
 
 const SubjectManagement: React.FC = () => {
@@ -37,7 +37,7 @@ const SubjectManagement: React.FC = () => {
     const fetchData = async () => {
         try {
             const [classesRes, subjectsRes] = await Promise.all([
-                supabase.from('classes').select('id, class_name').eq('school_id', schoolId).order('created_at'),
+                supabase.from('classes').select('id, name').eq('school_id', schoolId).order('created_at'),
                 supabase
                     .from('subjects')
                     .select(`
@@ -45,7 +45,7 @@ const SubjectManagement: React.FC = () => {
             name,
             class_id,
             classes!inner (
-              class_name,
+              name,
               school_id
             )
           `)
@@ -76,7 +76,7 @@ const SubjectManagement: React.FC = () => {
           name,
           class_id,
           classes (
-            class_name
+            name
           )
         `);
 
@@ -142,7 +142,7 @@ const SubjectManagement: React.FC = () => {
                         >
                             <option value="">Select Class...</option>
                             {(classes ?? []).map(c => (
-                                <option key={c.id} value={c.id}>{c.class_name}</option>
+                                <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
                         </select>
                     </div>
@@ -186,7 +186,7 @@ const SubjectManagement: React.FC = () => {
                                     <div>
                                         <h4 className="text-lg font-bold text-slate-900">{subj.name}</h4>
                                         <p className="text-sm text-slate-500">
-                                            Class: <span className="font-semibold">{subj.classes?.class_name || 'Unknown'}</span> | ID: {subj.id}
+                                            Class: <span className="font-semibold">{subj.classes?.name || 'Unknown'}</span> | ID: {subj.id}
                                         </p>
                                     </div>
                                 </div>

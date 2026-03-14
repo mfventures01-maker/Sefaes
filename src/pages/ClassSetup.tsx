@@ -5,7 +5,7 @@ import { Plus, Trash2, Users, Loader2 } from 'lucide-react';
 
 interface ClassData {
     id: string;
-    class_name: string;
+    name: string;
     school_id: string;
     created_at: string;
 }
@@ -50,7 +50,7 @@ const ClassSetup: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('classes')
-                .insert([{ class_name: newClassName.trim(), school_id: schoolId }])
+                .insert([{ name: newClassName.trim(), school_id: schoolId }])
                 .select();
 
             if (error) throw error;
@@ -141,7 +141,7 @@ const ClassSetup: React.FC = () => {
                                         <Users className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <h4 className="text-lg font-bold text-slate-900">{cls.class_name}</h4>
+                                        <h4 className="text-lg font-bold text-slate-900">{cls.name}</h4>
                                         <p className="text-sm text-slate-500">ID: {cls.id}</p>
                                     </div>
                                 </div>

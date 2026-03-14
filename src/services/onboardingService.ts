@@ -29,10 +29,12 @@ export interface TeacherPayload {
 }
 
 export interface StudentPayload {
-    school_id: string;
-    student_name: string;
+    first_name: string;
+    last_name: string;
+    gender: 'male' | 'female';
+    student_number: string;
     class_id: string;
-    admission_number: string;
+    date_of_birth?: string;
 }
 
 export const onboardingService = {
@@ -135,20 +137,38 @@ export const onboardingService = {
     },
 
     getOnboardingStatus: async (institution_id: string) => {
-        // Fetch all relevant related data in parallel to determine status
-        const [schools, classes, teachers, students] = await Promise.all([
-            supabase.from('schools').select('id').eq('institution_id', institution_id),
-            supabase.from('classes').select('id').eq('school_id', institution_id), // Note: schoolId and institutionId are often same in this schema
-            supabase.from('teachers').select('id').eq('school_id', institution_id),
-            supabase.from('students').select('id').eq('school_id', institution_id)
+        // 1. Get the school(s) for this institution
+        const { data: schools } = await supabase
+            .from('schools')
+            .select('id')
+            .eq('institution_id', institution_id);
+
+        const school = schools?.[0];
+        if (!school) {
+            return {
+                hasSchool: false,
+                hasClasses: false,
+                hasTeachers: false,
+                hasStudents: false,
+                schoolId: null
+            };
+        }
+
+        const school_id = school.id;
+
+        // 2. Check for other records for this school
+        const [classes, teachers, students] = await Promise.all([
+            supabase.from('classes').select('id', { count: 'exact', head: true }).eq('school_id', school_id),
+            supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('school_id', school_id),
+            supabase.from('students').select('id, classes!inner(school_id)', { count: 'exact', head: true }).eq('classes.school_id', school_id)
         ]);
 
         return {
-            hasSchool: (schools.data?.length ?? 0) > 0,
-            hasClasses: (classes.data?.length ?? 0) > 0,
-            hasTeachers: (teachers.data?.length ?? 0) > 0,
-            hasStudents: (students.data?.length ?? 0) > 0,
-            schoolId: schools.data?.[0]?.id || null
+            hasSchool: true,
+            hasClasses: (classes.count ?? 0) > 0,
+            hasTeachers: (teachers.count ?? 0) > 0,
+            hasStudents: (students.count ?? 0) > 0,
+            schoolId: school_id
         };
     }
 };

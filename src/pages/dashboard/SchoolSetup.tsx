@@ -19,7 +19,7 @@ const SchoolSetup: React.FC = () => {
         setLoading(true);
         try {
             const { error } = await supabase.from('classes').insert({
-                class_name: className,
+                name: className,
                 school_id: schoolId
             });
             if (error) throw error;

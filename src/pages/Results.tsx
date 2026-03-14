@@ -6,7 +6,7 @@ import { DownloadCloud, Filter, Loader2, FileSearch, Search } from 'lucide-react
 const Results: React.FC = () => {
     const { schoolId } = useStore();
     const [results, setResults] = useState<any[]>([]);
-    const [classes, setClasses] = useState<{ id: string; class_name: string }[]>([]);
+    const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
     const [exams, setExams] = useState<{ id: string; exam_title: string; class_id: string }[]>([]);
 
     const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ const Results: React.FC = () => {
         if (!schoolId) return;
         try {
             const [classRes, examRes] = await Promise.all([
-                supabase.from('classes').select('id, class_name').eq('school_id', schoolId).order('created_at'),
+                supabase.from('classes').select('id, name').eq('school_id', schoolId).order('created_at'),
                 supabase.from('exams').select('id, exam_title, class_id').order('created_at')
             ]);
 
@@ -55,7 +55,8 @@ const Results: React.FC = () => {
             id,
             students (
               id,
-              student_name,
+              first_name,
+              last_name,
               class_id
             ),
             exams (
@@ -73,7 +74,7 @@ const Results: React.FC = () => {
 
             const formatted = safeData.map((d: any) => ({
                 id: d.id,
-                studentName: d.answer_scripts?.students?.student_name || 'Unknown',
+                studentName: d.answer_scripts?.students ? `${d.answer_scripts.students.first_name} ${d.answer_scripts.students.last_name}` : 'Unknown',
                 classId: d.answer_scripts?.students?.class_id || '',
                 examId: d.answer_scripts?.exams?.id || '',
                 examTitle: d.answer_scripts?.exams?.exam_title || 'Unknown Exam',
@@ -174,7 +175,7 @@ const Results: React.FC = () => {
                 >
                     <option value="">All Classes</option>
                     {(classes ?? []).map(c => (
-                        <option key={c.id} value={c.id}>{c.class_name}</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                 </select>
 
