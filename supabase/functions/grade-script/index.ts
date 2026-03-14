@@ -39,40 +39,20 @@ serve(async (req) => {
             }), { status: 429 });
         }
 
-        // 2. Fetch pending jobs
-        const { data: jobs, error: fetchError } = await supabase
-            .from("grading_jobs")
-            .select(`
-                id,
-                script_id,
-                attempts,
-                answer_scripts (
-                    ocr_text,
-                    exam_id,
-                    exams (
-                        marking_scheme
-                    )
-                )
-            `)
-            .eq("status", "pending")
-            .limit(BATCH_SIZE);
+        // 2. Fetch & Claim jobs atomically
+        const { data: jobs, error: claimError } = await supabase.rpc("claim_grading_jobs", {
+            batch_size_limit: BATCH_SIZE
+        });
 
-        if (fetchError) throw fetchError;
+        if (claimError) throw claimError;
         if (!jobs || jobs.length === 0) {
             return new Response(JSON.stringify({ message: "No pending jobs found" }), { status: 200 });
         }
 
-        // 3. Process jobs in parallel
-        const results = await Promise.all(jobs.map(async (job) => {
+        const results = await Promise.all(jobs.map(async (job: any) => {
             try {
-                await supabase.from("grading_jobs").update({
-                    status: "processing",
-                    worker_id: "edge-worker-governed",
-                    processed_at: new Date().toISOString()
-                }).eq("id", job.id);
-
-                const studentText = job.answer_scripts.ocr_text;
-                const scheme = job.answer_scripts.exams.marking_scheme;
+                const studentText = job.ocr_text;
+                const scheme = job.marking_scheme;
 
                 const gradeResult = await callGeminiWithRetry(studentText, scheme, geminiApiKey);
 
@@ -94,12 +74,12 @@ serve(async (req) => {
                     })
                 ]);
 
-                return { job_id: job.id, status: "success", exam_id: job.answer_scripts.exam_id };
+                return { job_id: job.id, status: "success", exam_id: job.exam_id };
 
             } catch (jobError) {
                 await supabase.from("grading_jobs").update({
                     status: "failed",
-                    error_message: jobError.message,
+                    error_message: (jobError as any).message,
                     attempts: (job.attempts || 0) + 1
                 }).eq("id", job.id);
                 return { job_id: job.id, status: "failed" };

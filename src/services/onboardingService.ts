@@ -14,6 +14,11 @@ export interface SchoolPayload {
     school_name: string;
     school_type: 'Secondary' | 'Primary';
     address: string;
+    email: string;
+    phone: string;
+    logo_url: string;
+    principal_name: string;
+    vice_principal_name: string;
 }
 
 export interface TeacherPayload {
@@ -24,12 +29,10 @@ export interface TeacherPayload {
 }
 
 export interface StudentPayload {
+    school_id: string;
+    student_name: string;
     class_id: string;
-    first_name: string;
-    last_name: string;
-    gender: 'Male' | 'Female' | 'Other';
-    student_number: string;
-    date_of_birth: string;
+    admission_number: string;
 }
 
 export const onboardingService = {

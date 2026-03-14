@@ -105,7 +105,12 @@ export const OnboardingWizard: React.FC = () => {
         institution_id: '',
         school_name: '',
         school_type: 'Secondary',
-        address: ''
+        address: '',
+        email: '',
+        phone: '',
+        logo_url: '',
+        principal_name: '',
+        vice_principal_name: ''
     });
 
     const [teacherData, setTeacherData] = useState<TeacherPayload>({
@@ -116,12 +121,10 @@ export const OnboardingWizard: React.FC = () => {
     });
 
     const [studentData, setStudentData] = useState<StudentPayload>({
+        school_id: '',
+        student_name: '',
         class_id: '',
-        first_name: '',
-        last_name: '',
-        gender: 'Male',
-        student_number: '',
-        date_of_birth: ''
+        admission_number: ''
     });
 
     const [classes, setClasses] = useState<any[]>([]);
@@ -437,6 +440,47 @@ export const OnboardingWizard: React.FC = () => {
                                 </div>
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
+                                        <label className="text-sm font-bold text-slate-700 ml-1">Principal Name</label>
+                                        <input
+                                            required
+                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                            value={schoolData.principal_name}
+                                            onChange={e => setSchoolData({ ...schoolData, principal_name: e.target.value })}
+                                            placeholder="School Principal"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-slate-700 ml-1">Vice Principal Name</label>
+                                        <input
+                                            required
+                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                            value={schoolData.vice_principal_name}
+                                            onChange={e => setSchoolData({ ...schoolData, vice_principal_name: e.target.value })}
+                                            placeholder="Deputy Admin"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-slate-700 ml-1">School Email</label>
+                                        <input
+                                            required
+                                            type="email"
+                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                            value={schoolData.email}
+                                            onChange={e => setSchoolData({ ...schoolData, email: e.target.value })}
+                                            placeholder="contact@school.com"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-slate-700 ml-1">School Phone</label>
+                                        <input
+                                            required
+                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                            value={schoolData.phone}
+                                            onChange={e => setSchoolData({ ...schoolData, phone: e.target.value })}
+                                            placeholder="+234..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
                                         <label className="text-sm font-bold text-slate-700 ml-1">School Type</label>
                                         <select
                                             className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
@@ -588,24 +632,27 @@ export const OnboardingWizard: React.FC = () => {
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">First Name</label>
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Student Full Name</label>
                                     <input
                                         required
                                         className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                        value={studentData.first_name}
-                                        onChange={e => setStudentData({ ...studentData, first_name: e.target.value })}
-                                        placeholder="John"
+                                        value={studentData.student_name}
+                                        onChange={e => setStudentData({ ...studentData, student_name: e.target.value })}
+                                        placeholder="John Doe"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">Last Name</label>
-                                    <input
-                                        required
-                                        className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                        value={studentData.last_name}
-                                        onChange={e => setStudentData({ ...studentData, last_name: e.target.value })}
-                                        placeholder="Doe"
-                                    />
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Admission Number</label>
+                                    <div className="relative group">
+                                        <Hash className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                        <input
+                                            required
+                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                            value={studentData.admission_number}
+                                            onChange={e => setStudentData({ ...studentData, admission_number: e.target.value })}
+                                            placeholder="STU/2026/001"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700 ml-1">Class</label>
@@ -613,52 +660,13 @@ export const OnboardingWizard: React.FC = () => {
                                         required
                                         className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                                         value={studentData.class_id}
-                                        onChange={e => setStudentData({ ...studentData, class_id: e.target.value })}
+                                        onChange={e => setStudentData({ ...studentData, class_id: e.target.value, school_id: schoolId || '' })}
                                     >
                                         <option value="">Select a Class</option>
                                         {(classes ?? []).map((c: any) => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
                                     </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">Gender</label>
-                                    <select
-                                        required
-                                        className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                        value={studentData.gender}
-                                        onChange={e => setStudentData({ ...studentData, gender: e.target.value as any })}
-                                    >
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">Student Number</label>
-                                    <div className="relative group">
-                                        <Hash className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                                        <input
-                                            required
-                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                            value={studentData.student_number}
-                                            onChange={e => setStudentData({ ...studentData, student_number: e.target.value })}
-                                            placeholder="STU-2024-001"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 ml-1">Date of Birth</label>
-                                    <div className="relative group">
-                                        <Calendar className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                                        <input
-                                            required
-                                            type="date"
-                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                            value={studentData.date_of_birth}
-                                            onChange={e => setStudentData({ ...studentData, date_of_birth: e.target.value })}
-                                        />
-                                    </div>
                                 </div>
                             </div>
                             <div className="pt-6">

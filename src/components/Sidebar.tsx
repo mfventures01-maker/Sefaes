@@ -41,6 +41,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
             { label: 'Scripts', path: '/portal/secondary/scripts', icon: CheckSquare },
             { label: 'Grading', path: '/portal/secondary/grading', icon: Target },
             { label: 'Results', path: '/portal/secondary/results', icon: FileBarChart },
+            { label: 'Principal Terminal', path: '/portal/secondary/terminal/principal', icon: Settings },
+            { label: 'VP Terminal', path: '/portal/secondary/terminal/vice-principal', icon: Target },
+            { label: 'Teacher Terminal', path: '/portal/secondary/terminal/teacher', icon: CheckSquare },
+            { label: 'Student Terminal', path: '/portal/secondary/terminal/student', icon: GraduationCap },
         ],
         university: [
             { label: 'Dashboard', path: '/portal/university/dashboard', icon: LayoutDashboard },
@@ -76,8 +80,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
         ]
     };
 
-    const type = institutionType || 'secondary';
-    const menuItems = menuMap[type];
+    const type = (institutionType || 'secondary') as keyof typeof menuMap;
+    const menuItems = menuMap[type] || menuMap.secondary;
 
     return (
         <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-300">

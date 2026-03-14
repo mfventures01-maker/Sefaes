@@ -41,6 +41,12 @@ import {
   AnalyticsPage
 } from './pages/PlaceholderPages';
 
+// Operational Terminals
+import PrincipalTerminal from './pages/terminals/PrincipalTerminal';
+import VicePrincipalTerminal from './pages/terminals/VicePrincipalTerminal';
+import TeacherTerminal from './pages/terminals/TeacherTerminal';
+import StudentTerminal from './pages/terminals/StudentTerminal';
+
 import SetupWizard from './pages/dashboard/SetupWizard';
 import SchoolSetup from './pages/dashboard/SchoolSetup';
 import NotFound from './pages/NotFound';
@@ -107,6 +113,12 @@ const App: React.FC = () => {
           <Route path="training" element={<TrainingModulesPage />} />
           <Route path="assessments" element={<AssessmentsPage />} />
           <Route path="reports" element={<ReportsPage />} />
+
+          {/* Operational Terminals */}
+          <Route path="terminal/principal" element={<PrincipalTerminal />} />
+          <Route path="terminal/vice-principal" element={<VicePrincipalTerminal />} />
+          <Route path="terminal/teacher" element={<TeacherTerminal />} />
+          <Route path="terminal/student" element={<StudentTerminal />} />
         </Route>
 
         <Route path="/portal/demo" element={<DemoDashboard />} />

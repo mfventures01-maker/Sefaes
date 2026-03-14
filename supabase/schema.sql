@@ -58,3 +58,109 @@ CREATE TABLE IF NOT EXISTS class_insights (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(exam_id)
 );
+-- 6. Schools Table (Institution Root)
+CREATE TABLE IF NOT EXISTS schools (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institution_id UUID, -- Links to institution if multi-tenancy exists
+    school_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    address TEXT,
+    logo_url TEXT,
+    principal_name TEXT,
+    vice_principal_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. Classes Table
+CREATE TABLE IF NOT EXISTS classes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. Subjects Catalog (Master List)
+CREATE TABLE IF NOT EXISTS subject_catalog (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    category TEXT -- Science, Arts, etc.
+);
+
+-- 9. Class Subjects (Mapping catalog to school classes)
+CREATE TABLE IF NOT EXISTS class_subjects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subject_catalog(id),
+    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. Teachers Table
+CREATE TABLE IF NOT EXISTS teachers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    phone TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. Students Table
+CREATE TABLE IF NOT EXISTS students (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+    student_name TEXT NOT NULL,
+    class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
+    admission_number TEXT UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. Exams Table
+CREATE TABLE IF NOT EXISTS exams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+    class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
+    subject_id UUID NOT NULL, -- Logical link to subject
+    exam_title TEXT NOT NULL,
+    exam_date DATE DEFAULT CURRENT_DATE,
+    marking_scheme JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Foreign Key Updates for existing tables
+ALTER TABLE answer_scripts ADD COLUMN IF NOT EXISTS school_id UUID REFERENCES schools(id);
+
+-- 13. Atomic Job Claiming Function
+CREATE OR REPLACE FUNCTION claim_grading_jobs(batch_size_limit INT)
+RETURNS TABLE (
+    id UUID,
+    script_id UUID,
+    attempts INT,
+    ocr_text TEXT,
+    exam_id UUID,
+    marking_scheme JSONB
+) AS $$
+BEGIN
+    RETURN QUERY
+    UPDATE grading_jobs
+    SET status = 'processing',
+        worker_id = 'edge-worker-atomic',
+        processed_at = now()
+    WHERE grading_jobs.id IN (
+        SELECT g.id
+        FROM grading_jobs g
+        WHERE g.status = 'pending'
+        ORDER BY g.created_at ASC
+        LIMIT batch_size_limit
+        FOR UPDATE SKIP LOCKED
+    )
+    RETURNING 
+        grading_jobs.id,
+        grading_jobs.script_id,
+        grading_jobs.attempts,
+        (SELECT s.ocr_text FROM answer_scripts s WHERE s.id = grading_jobs.script_id),
+        (SELECT s.exam_id FROM answer_scripts s WHERE s.id = grading_jobs.script_id),
+        (SELECT e.marking_scheme FROM exams e WHERE e.id = (SELECT s.exam_id FROM answer_scripts s WHERE s.id = grading_jobs.script_id));
+END;
+$$ LANGUAGE plpgsql;
