@@ -44,8 +44,51 @@ export const OnboardingWizard: React.FC = () => {
     const { setInstitutionId, setInstitutionType, setSchoolId } = useInstitutionStore();
 
     const [state, setState] = useState<OnboardingState>('INIT');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Sync state with backend on mount
+    useEffect(() => {
+        const syncState = async () => {
+            const storedInstitutionId = localStorage.getItem('institutionId');
+            if (!storedInstitutionId) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const status = await onboardingService.getOnboardingStatus(storedInstitutionId);
+
+                if (status.hasStudents) setState('ONBOARDING_COMPLETE');
+                else if (status.hasTeachers) setState('TEACHERS_CREATED');
+                else if (status.hasClasses) {
+                    // Check if subjects are initialized (approximate by checking classSubjects if reachable)
+                    const subjects = await onboardingService.getClassSubjects(status.schoolId || storedInstitutionId);
+                    if (subjects.length > 0) {
+                        setClassSubjects(subjects);
+                        setState('SUBJECTS_ASSIGNED');
+                    } else {
+                        setState('CLASSES_INITIALIZED');
+                    }
+                    const classList = await onboardingService.getClasses(status.schoolId || storedInstitutionId);
+                    setClasses(classList);
+                }
+                else if (status.hasSchool) setState('SCHOOL_CREATED');
+                else setState('INSTITUTION_CREATED');
+
+                if (status.schoolId) {
+                    setLocalSchoolId(status.schoolId);
+                    setSchoolId(status.schoolId);
+                }
+            } catch (err) {
+                console.error("ONBOARDING_SYNC_FAILURE:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        syncState();
+    }, []);
 
     // Form Data
     const [institutionData, setInstitutionData] = useState<InstitutionPayload>({
@@ -203,7 +246,7 @@ export const OnboardingWizard: React.FC = () => {
 
     const renderStepIndicator = () => (
         <div className="flex items-center justify-between mb-12 px-2 max-w-4xl mx-auto overflow-x-auto pb-4">
-            {steps.map((step, idx) => {
+            {(steps ?? []).map((step, idx) => {
                 const isCompleted = steps.findIndex(s => s.id === state) > idx;
                 const isActive = step.id === state;
                 const Icon = step.icon;
@@ -506,9 +549,9 @@ export const OnboardingWizard: React.FC = () => {
                                         onChange={e => setSelectedSubjectId(e.target.value)}
                                     >
                                         <option value="">Select a Subject Mapping</option>
-                                        {classSubjects.map((cs: any) => (
+                                        {(classSubjects ?? []).map((cs: any) => (
                                             <option key={cs.id} value={cs.id}>
-                                                {cs.subject_catalog.name} ({cs.classes.name})
+                                                {cs.subject_catalog?.name || 'Subject'} ({cs.classes?.name || 'Class'})
                                             </option>
                                         ))}
                                     </select>
@@ -573,7 +616,7 @@ export const OnboardingWizard: React.FC = () => {
                                         onChange={e => setStudentData({ ...studentData, class_id: e.target.value })}
                                     >
                                         <option value="">Select a Class</option>
-                                        {classes.map((c: any) => (
+                                        {(classes ?? []).map((c: any) => (
                                             <option key={c.id} value={c.id}>{c.name}</option>
                                         ))}
                                     </select>

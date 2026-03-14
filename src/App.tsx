@@ -27,6 +27,7 @@ import ScriptUpload from './pages/ScriptUpload';
 import GradingQueue from './pages/GradingQueue';
 import Results from './pages/Results';
 import MarkingSchemes from './pages/MarkingSchemes';
+import DemoDashboard from './pages/DemoDashboard';
 
 // Placeholders for other institution types
 import {
@@ -108,6 +109,7 @@ const App: React.FC = () => {
           <Route path="reports" element={<ReportsPage />} />
         </Route>
 
+        <Route path="/portal/demo" element={<DemoDashboard />} />
         {/* Fallback */}
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -141,7 +141,7 @@ const SubjectManagement: React.FC = () => {
                             required
                         >
                             <option value="">Select Class...</option>
-                            {classes.map(c => (
+                            {(classes ?? []).map(c => (
                                 <option key={c.id} value={c.id}>{c.class_name}</option>
                             ))}
                         </select>
@@ -177,7 +177,7 @@ const SubjectManagement: React.FC = () => {
                     </div>
                 ) : subjects.length > 0 ? (
                     <ul className="divide-y divide-slate-100">
-                        {subjects.map((subj) => (
+                        {(subjects ?? []).map((subj) => (
                             <li key={subj.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center space-x-4">
                                     <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">

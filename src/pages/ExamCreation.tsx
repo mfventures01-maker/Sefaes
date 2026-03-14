@@ -175,7 +175,7 @@ const ExamCreation: React.FC = () => {
                                 className="w-full rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="">Select Class...</option>
-                                {classes.map(c => (
+                                {(classes ?? []).map(c => (
                                     <option key={c.id} value={c.id}>{c.class_name}</option>
                                 ))}
                             </select>
@@ -191,7 +191,7 @@ const ExamCreation: React.FC = () => {
                                 className="w-full rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="">Select Subject...</option>
-                                {subjects.map(s => (
+                                {(subjects ?? []).map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>
@@ -212,7 +212,7 @@ const ExamCreation: React.FC = () => {
                         </div>
 
                         <div className="space-y-4">
-                            {rubric.map((r, index) => (
+                            {(rubric ?? []).map((r, index) => (
                                 <div key={index} className="flex items-center space-x-4 animate-in fade-in duration-300">
                                     <div className="flex-1">
                                         <input

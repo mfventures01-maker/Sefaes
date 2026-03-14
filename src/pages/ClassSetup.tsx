@@ -134,7 +134,7 @@ const ClassSetup: React.FC = () => {
                     </div>
                 ) : classes.length > 0 ? (
                     <ul className="divide-y divide-slate-100">
-                        {classes.map((cls) => (
+                        {(classes ?? []).map((cls) => (
                             <li key={cls.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                 <div className="flex items-center space-x-4">
                                     <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">

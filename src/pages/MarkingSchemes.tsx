@@ -86,7 +86,7 @@ const MarkingSchemes: React.FC = () => {
                         className="w-full md:w-1/2 rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
                     >
                         {exams.length === 0 && <option value="">No exams available</option>}
-                        {exams.map(exam => (
+                        {(exams ?? []).map(exam => (
                             <option key={exam.id} value={exam.id}>{exam.exam_title}</option>
                         ))}
                     </select>

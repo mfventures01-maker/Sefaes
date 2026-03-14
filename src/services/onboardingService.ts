@@ -129,5 +129,23 @@ export const onboardingService = {
 
         if (error) throw error;
         return data;
+    },
+
+    getOnboardingStatus: async (institution_id: string) => {
+        // Fetch all relevant related data in parallel to determine status
+        const [schools, classes, teachers, students] = await Promise.all([
+            supabase.from('schools').select('id').eq('institution_id', institution_id),
+            supabase.from('classes').select('id').eq('school_id', institution_id), // Note: schoolId and institutionId are often same in this schema
+            supabase.from('teachers').select('id').eq('school_id', institution_id),
+            supabase.from('students').select('id').eq('school_id', institution_id)
+        ]);
+
+        return {
+            hasSchool: (schools.data?.length ?? 0) > 0,
+            hasClasses: (classes.data?.length ?? 0) > 0,
+            hasTeachers: (teachers.data?.length ?? 0) > 0,
+            hasStudents: (students.data?.length ?? 0) > 0,
+            schoolId: schools.data?.[0]?.id || null
+        };
     }
 };

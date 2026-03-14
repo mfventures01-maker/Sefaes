@@ -111,7 +111,7 @@ const StudentUpload: React.FC = () => {
                         className="w-full md:w-1/2 rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
                     >
                         <option value="">Choose Class...</option>
-                        {classes.map(c => (
+                        {(classes ?? []).map(c => (
                             <option key={c.id} value={c.id}>{c.class_name}</option>
                         ))}
                     </select>

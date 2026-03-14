@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
+import { onboardingService } from '../../services/onboardingService';
 
 export const SecondaryWorkspace: React.FC = () => {
     const navigate = useNavigate();
@@ -35,10 +36,19 @@ export const SecondaryWorkspace: React.FC = () => {
                     // Force redirect to onboarding if missing
                     navigate('/onboarding/create-institution');
                 } else {
-                    // Update state & Go to secondary dashboard
+                    // Update state
                     setInstitutionId(profile.institution_id);
                     setInstitutionType('secondary_school');
-                    navigate('/portal/secondary_school/dashboard');
+
+                    // Check if onboarding is truly complete via service truth
+                    const status = await onboardingService.getOnboardingStatus(profile.institution_id);
+
+                    if (status.hasStudents) {
+                        navigate('/portal/secondary_school/dashboard');
+                    } else {
+                        // If not complete, send them back to the wizard to pick up where they left off
+                        navigate('/onboarding/create-institution');
+                    }
                 }
             } catch (err) {
                 console.error("WORKSPACE GUARD FAILED", err);

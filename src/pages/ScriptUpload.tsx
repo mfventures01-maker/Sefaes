@@ -137,7 +137,7 @@ const ScriptUpload: React.FC = () => {
                             className="w-full rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500"
                         >
                             <option value="">Choose Exam...</option>
-                            {exams.map(e => (
+                            {(exams ?? []).map(e => (
                                 <option key={e.id} value={e.id}>{e.exam_title}</option>
                             ))}
                         </select>
@@ -152,7 +152,7 @@ const ScriptUpload: React.FC = () => {
                             className="w-full rounded-xl border-slate-300 border p-3 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50"
                         >
                             <option value="">Choose Student...</option>
-                            {filteredStudents.map(s => (
+                            {(filteredStudents ?? []).map(s => (
                                 <option key={s.id} value={s.id}>{s.student_name}</option>
                             ))}
                         </select>

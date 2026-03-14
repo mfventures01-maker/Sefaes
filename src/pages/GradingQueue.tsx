@@ -7,88 +7,81 @@ import { gradeEssay } from '../services/geminiService';
 const GradingQueue: React.FC = () => {
     const { schoolId } = useStore();
     const [pendingScripts, setPendingScripts] = useState<any[]>([]);
+    const [activeJobs, setActiveJobs] = useState<any[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [total, setTotal] = useState(0);
+    const [status, setStatus] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchPendingScripts();
+        fetchData();
+        const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
+        return () => clearInterval(interval);
     }, [schoolId]);
 
-    const fetchPendingScripts = async () => {
+    const fetchData = async () => {
         if (!schoolId) return;
         try {
-            // Need to join exams to make sure the script belongs to this school
-            // Simplest way: select scripts where grading_status = 'pending'
-            const { data, error } = await supabase
+            // 1. Fetch scripts that aren't graded yet
+            const scriptsRes = await supabase
                 .from('answer_scripts')
-                .select(`
-          id,
-          ocr_text,
-          exam_id,
-          student_id,
-          exams (
-            marking_scheme
-          )
-        `)
+                .select('id, grading_status')
                 .eq('grading_status', 'pending');
 
-            if (error) throw error;
-            if (data) setPendingScripts(data);
+            if (scriptsRes.data) setPendingScripts(scriptsRes.data);
+
+            // 2. Fetch active jobs to show progress
+            const jobsRes = await supabase
+                .from('grading_jobs')
+                .select('id, status, script_id')
+                .in('status', ['pending', 'processing']);
+
+            if (jobsRes.data) setActiveJobs(jobsRes.data);
+
+            if (jobsRes.data?.length === 0 && isProcessing) {
+                setIsProcessing(false);
+                setStatus('Grading session complete!');
+            }
         } catch (err) {
-            console.error(err);
+            console.error('FETCH_DATA_FAILURE:', err);
         }
     };
 
     const startGrading = async () => {
         if (pendingScripts.length === 0) return;
         setIsProcessing(true);
-        setProgress(0);
-        setTotal(pendingScripts.length);
         setError(null);
+        setStatus('Enqueuing scripts...');
 
-        let currentIndex = 0;
+        try {
+            // 1. Create jobs for all pending scripts
+            const jobEntries = pendingScripts.map(s => ({
+                script_id: s.id,
+                status: 'pending'
+            }));
 
-        for (const script of pendingScripts) {
-            try {
-                const scheme = script.exams.marking_scheme;
-                if (!scheme) throw new Error('No marking scheme found for this exam.');
+            const { error: queueError } = await supabase
+                .from('grading_jobs')
+                .insert(jobEntries);
 
-                // Pass scheme and wait for gemini result
-                const result = await gradeEssay(script.ocr_text, scheme);
+            if (queueError) throw queueError;
 
-                // Insert into grading_results
-                const { error: insertError } = await supabase
-                    .from('grading_results')
-                    .insert([{
-                        answer_script_id: script.id,
-                        score: result.awardedPoints || 0,
-                        ai_feedback: result.feedback || 'No feedback generated.',
-                        grading_status: 'completed'
-                    }]);
+            // 2. Update script status to queued
+            const { error: updateError } = await supabase
+                .from('answer_scripts')
+                .update({ grading_status: 'queued' })
+                .in('id', pendingScripts.map(s => s.id));
 
-                if (insertError) throw insertError;
+            if (updateError) throw updateError;
 
-                // Update answer_scripts
-                const { error: updateError } = await supabase
-                    .from('answer_scripts')
-                    .update({ grading_status: 'graded' })
-                    .eq('id', script.id);
+            // 3. Trigger initial worker run
+            setStatus('Worker triggered...');
+            await supabase.functions.invoke('grade-script');
 
-                if (updateError) throw updateError;
-
-            } catch (err: any) {
-                console.error(`Error grading script ${script.id}:`, err);
-                // Could log it to state, but we'll continue to the next script
-            }
-
-            currentIndex++;
-            setProgress(currentIndex);
+        } catch (err: any) {
+            console.error('START_GRADING_FAILURE:', err);
+            setError(err.message);
+            setIsProcessing(false);
         }
-
-        setIsProcessing(false);
-        fetchPendingScripts(); // Refresh list
     };
 
     if (!schoolId) {
@@ -100,21 +93,24 @@ const GradingQueue: React.FC = () => {
         );
     }
 
+    const totalInQueue = pendingScripts.length + activeJobs.length;
+    const completedCount = totalInQueue - activeJobs.length;
+
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <div>
                 <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">AI Grading Pipeline</h2>
-                <p className="text-slate-500">Auto-grade pending exam scripts using SEFAES Vision Engine.</p>
+                <p className="text-slate-500">Asynchronous batch grading using distributed workers.</p>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
                 <BrainCircuit className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
 
                 <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                    {pendingScripts.length} Scripts Pending
+                    {totalInQueue} Scripts in Pipeline
                 </h3>
                 <p className="text-slate-500 mb-8">
-                    The AI engine will evaluate each script against its defined rubric and assign a score.
+                    {activeJobs.length} jobs currently processing or pending in the cloud.
                 </p>
 
                 {error && (
@@ -123,16 +119,16 @@ const GradingQueue: React.FC = () => {
                     </div>
                 )}
 
-                {isProcessing ? (
+                {activeJobs.length > 0 || isProcessing ? (
                     <div className="space-y-4">
                         <div className="flex items-center justify-center space-x-3 text-indigo-600 font-semibold mb-2">
                             <Loader2 className="w-6 h-6 animate-spin" />
-                            <span>Grading in progress ({progress} / {total})</span>
+                            <span>{status || `Processing (${completedCount} / ${totalInQueue})`}</span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
                             <div
                                 className="bg-indigo-600 h-4 transition-all duration-300 relative"
-                                style={{ width: `${(progress / total) * 100}%` }}
+                                style={{ width: `${(completedCount / totalInQueue) * 100}%` }}
                             >
                                 <div className="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_1s_infinite]"></div>
                             </div>
@@ -146,12 +142,12 @@ const GradingQueue: React.FC = () => {
                                 className="flex items-center space-x-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md transition-all active:scale-95 mx-auto"
                             >
                                 <Play className="w-5 h-5" />
-                                <span>Start Batch Grading</span>
+                                <span>Start Distributed Grading</span>
                             </button>
                         ) : (
                             <div className="inline-flex items-center space-x-2 text-green-600 font-semibold bg-green-50 px-6 py-3 rounded-xl">
                                 <CheckCircle className="w-5 h-5" />
-                                <span>All scripts have been graded!</span>
+                                <span>All scripts are up to date!</span>
                             </div>
                         )}
                     </div>

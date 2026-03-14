@@ -45,7 +45,7 @@ const Results: React.FC = () => {
         try {
             // Need a flat join for easy display:
             // grading_results -> answer_scripts -> students & exams
-            const { data, error } = await supabase
+            const { data, error: supabaseError } = await supabase
                 .from('grading_results')
                 .select(`
           id,
@@ -66,22 +66,26 @@ const Results: React.FC = () => {
           )
         `);
 
-            if (error) throw error;
+            if (supabaseError) throw supabaseError;
 
-            if (data) {
-                const formatted = data.map((d: any) => ({
-                    id: d.id,
-                    studentName: d.answer_scripts?.students?.student_name || 'Unknown',
-                    classId: d.answer_scripts?.students?.class_id || '',
-                    examId: d.answer_scripts?.exams?.id || '',
-                    examTitle: d.answer_scripts?.exams?.exam_title || 'Unknown Exam',
-                    score: d.score,
-                    feedback: d.ai_feedback,
-                }));
-                setResults(formatted);
-            }
+            // PHASE 1 & 2: Normalize data
+            const safeData = data ?? [];
+
+            const formatted = safeData.map((d: any) => ({
+                id: d.id,
+                studentName: d.answer_scripts?.students?.student_name || 'Unknown',
+                classId: d.answer_scripts?.students?.class_id || '',
+                examId: d.answer_scripts?.exams?.id || '',
+                examTitle: d.answer_scripts?.exams?.exam_title || 'Unknown Exam',
+                score: d.score,
+                feedback: d.ai_feedback,
+            }));
+
+            // PHASE 3: Guarded state update
+            setResults(formatted);
         } catch (err) {
-            console.error(err);
+            console.error('RESULTS_FETCH_FAILURE:', err);
+            setResults([]);
         } finally {
             setLoading(false);
         }
@@ -169,7 +173,7 @@ const Results: React.FC = () => {
                     className="w-full md:w-48 rounded-xl border-slate-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500"
                 >
                     <option value="">All Classes</option>
-                    {classes.map(c => (
+                    {(classes ?? []).map(c => (
                         <option key={c.id} value={c.id}>{c.class_name}</option>
                     ))}
                 </select>
@@ -180,7 +184,7 @@ const Results: React.FC = () => {
                     className="w-full md:w-64 rounded-xl border-slate-300 border p-2 text-sm focus:ring-2 focus:ring-indigo-500"
                 >
                     <option value="">All Exams</option>
-                    {filteredExams.map(e => (
+                    {(filteredExams ?? []).map(e => (
                         <option key={e.id} value={e.id}>{e.exam_title}</option>
                     ))}
                 </select>
@@ -217,7 +221,7 @@ const Results: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-slate-100">
-                                {filteredResults.length > 0 ? filteredResults.map((result) => (
+                                {(filteredResults ?? []).length > 0 ? (filteredResults ?? []).map((result) => (
                                     <tr key={result.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
                                             {result.studentName}
