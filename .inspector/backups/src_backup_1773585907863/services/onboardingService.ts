@@ -47,17 +47,11 @@ export const onboardingService = {
 
     // Stage 2: School Setup
     createSchool: async (payload: SchoolPayload) => {
-        const { data, error } = await supabase.rpc('create_school_with_classes', {
-            p_school_name: payload.school_name,
-            p_school_type: payload.school_type,
-            p_email: payload.email,
-            p_phone: payload.phone,
-            p_address: payload.address,
-            p_logo_url: payload.logo_url,
-            p_principal_name: payload.principal_name,
-            p_vice_principal_name: payload.vice_principal_name,
-            p_institution_id: payload.institution_id
-        });
+        const { data, error } = await supabase
+            .from('schools')
+            .insert(payload)
+            .select()
+            .single();
         if (error) throw error;
         return data;
     },

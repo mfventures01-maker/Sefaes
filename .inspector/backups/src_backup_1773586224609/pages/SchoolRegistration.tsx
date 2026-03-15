@@ -28,22 +28,16 @@ const SchoolRegistration: React.FC = () => {
         setError(null);
 
         try {
-            const { data, error: insertError } = await supabase.rpc('create_school_with_classes', {
-                p_school_name: formData.school_name,
-                p_school_type: 'Secondary', // Defaulting to Secondary as per current UI
-                p_email: formData.email,
-                p_phone: formData.phone,
-                p_address: formData.address,
-                p_logo_url: '',
-                p_principal_name: formData.principal_name,
-                p_vice_principal_name: '',
-                p_institution_id: null
-            });
+            const { data, error: insertError } = await supabase
+                .from('schools')
+                .insert([formData])
+                .select()
+                .single();
 
             if (insertError) throw insertError;
 
-            if (data && (data as any).id) {
-                setSchoolId((data as any).id);
+            if (data) {
+                setSchoolId(data.id);
                 navigate('/dashboard');
             }
         } catch (err: any) {

@@ -1,0 +1,7 @@
+﻿C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\dashboard\SchoolSetup.tsx
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\dashboard\SetupWizard.tsx
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\onboarding\CreateInstitution.tsx
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\onboarding\OnboardingWizard.tsx
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\SchoolRegistration.tsx
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\SchoolSettings.tsx
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\services\onboardingService.ts

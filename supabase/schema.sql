@@ -257,3 +257,64 @@ BEGIN
     RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SEFAES BACKEND-FRONTEND ALIGNMENT PROTOCOL FUNCTIONS
+
+CREATE OR REPLACE FUNCTION create_school_with_classes(
+    p_school_name TEXT,
+    p_school_type TEXT,
+    p_email TEXT,
+    p_phone TEXT,
+    p_address TEXT,
+    p_logo_url TEXT,
+    p_principal_name TEXT,
+    p_vice_principal_name TEXT,
+    p_institution_id UUID DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_school_id UUID;
+BEGIN
+    INSERT INTO schools (
+        institution_id, school_name, email, phone, address, 
+        logo_url, principal_name, vice_principal_name
+    )
+    VALUES (
+        p_institution_id, p_school_name, p_email, p_phone, p_address,
+        p_logo_url, p_principal_name, p_vice_principal_name
+    )
+    RETURNING id INTO new_school_id;
+
+    -- Auto-initialize classes if it's a secondary school
+    IF p_school_type = 'Secondary' THEN
+        PERFORM initialize_secondary_classes(new_school_id);
+    END IF;
+
+    RETURN jsonb_build_object(
+        'id', new_school_id,
+        'school_name', p_school_name
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION resolve_teacher_identity()
+RETURNS JSONB AS $$
+DECLARE
+    teacher_record RECORD;
+BEGIN
+    SELECT 
+        t.id as teacher_id,
+        t.school_id,
+        t.name as teacher_name,
+        t.email as teacher_email
+    INTO teacher_record
+    FROM teachers t
+    WHERE t.user_id = auth.uid();
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN row_to_json(teacher_record)::jsonb;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
