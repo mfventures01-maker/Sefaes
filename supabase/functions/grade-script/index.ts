@@ -18,9 +18,19 @@ serve(async (req) => {
         if (authHeader) {
             const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
             if (user) {
-                userId = user.id;
-                const { data: profile } = await supabase.from("profiles").select("institution_id").eq("user_id", user.id).single();
-                schoolId = profile?.institution_id || user.id;
+                // 1. Check if user is a principal
+                const { data: principal } = await supabase.from("principals").select("id, school_id").eq("user_id", user.id).single();
+                if (principal) {
+                    userId = principal.id;
+                    schoolId = principal.school_id;
+                } else {
+                    // 2. Check if user is a teacher
+                    const { data: teacher } = await supabase.from("teachers").select("id, school_id").eq("user_id", user.id).single();
+                    if (teacher) {
+                        userId = teacher.id;
+                        schoolId = teacher.school_id;
+                    }
+                }
             }
         }
 
