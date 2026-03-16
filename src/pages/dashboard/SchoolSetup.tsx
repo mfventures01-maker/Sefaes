@@ -36,11 +36,11 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { error } = await supabase.from('subjects').insert({
+            const { error } = await supabase.from('subject_catalog').insert({
                 name: subjectName
             });
             if (error) throw error;
-            setSuccess(`Subject ${subjectName} created!`);
+            setSuccess(`Subject ${subjectName} created in catalog!`);
             setSubjectName('');
         } catch (err) {
             console.error(err);

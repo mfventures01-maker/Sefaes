@@ -39,22 +39,32 @@ const SubjectManagement: React.FC = () => {
             const [classesRes, subjectsRes] = await Promise.all([
                 supabase.from('classes').select('id, name').eq('school_id', schoolId).order('created_at'),
                 supabase
-                    .from('subjects')
+                    .from('class_subjects')
                     .select(`
-            id,
-            name,
-            class_id,
-            classes!inner (
-              name,
-              school_id
-            )
-          `)
+                        id,
+                        class_id,
+                        subject_id,
+                        subject_catalog!inner(name),
+                        classes!inner (
+                            name,
+                            school_id
+                        )
+                    `)
                     .eq('classes.school_id', schoolId)
-                    .order('name')
+                    .order('classes(name)')
             ]);
 
             if (classesRes.data) setClasses(classesRes.data);
-            if (subjectsRes.data) setSubjects(subjectsRes.data as unknown as SubjectData[]);
+            if (subjectsRes.data) {
+                // Flatten the data for the UI
+                const flattened = subjectsRes.data.map((s: any) => ({
+                    id: s.id,
+                    name: s.subject_catalog.name,
+                    class_id: s.class_id,
+                    classes: s.classes
+                }));
+                setSubjects(flattened);
+            }
         } catch (err) {
             console.error('Error fetching subjects data:', err);
         } finally {
@@ -68,22 +78,53 @@ const SubjectManagement: React.FC = () => {
 
         setLoading(true);
         try {
+            // Step 1: Ensure subject exists in catalog
+            let subjectId;
+            const { data: existing } = await supabase
+                .from('subject_catalog')
+                .select('id')
+                .eq('name', newSubjectName.trim())
+                .maybeSingle();
+
+            if (existing) {
+                subjectId = existing.id;
+            } else {
+                const { data: created, error: createError } = await supabase
+                    .from('subject_catalog')
+                    .insert({ name: newSubjectName.trim() })
+                    .select()
+                    .single();
+                if (createError) throw createError;
+                subjectId = created.id;
+            }
+
+            // Step 2: Assign to class
             const { data, error } = await supabase
-                .from('subjects')
-                .insert([{ name: newSubjectName.trim(), class_id: selectedClassId }])
+                .from('class_subjects')
+                .insert([{ 
+                    subject_id: subjectId, 
+                    class_id: selectedClassId,
+                    school_id: schoolId 
+                }])
                 .select(`
-          id,
-          name,
-          class_id,
-          classes (
-            name
-          )
-        `);
+                    id,
+                    class_id,
+                    subject_id,
+                    subject_catalog!inner(name),
+                    classes!inner(name)
+                `)
+                .single();
 
             if (error) throw error;
 
             if (data) {
-                setSubjects([...subjects, data[0] as unknown as SubjectData]);
+                const newEntry = {
+                    id: data.id,
+                    name: (data as any).subject_catalog.name,
+                    class_id: data.class_id,
+                    classes: (data as any).classes
+                };
+                setSubjects([...subjects, newEntry]);
                 setNewSubjectName('');
                 setSelectedClassId('');
             }
@@ -96,11 +137,11 @@ const SubjectManagement: React.FC = () => {
     };
 
     const handleDeleteSubject = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this subject?')) return;
+        if (!confirm('Are you sure you want to delete this subject assignment?')) return;
 
         try {
             const { error } = await supabase
-                .from('subjects')
+                .from('class_subjects')
                 .delete()
                 .eq('id', id);
 
@@ -109,7 +150,7 @@ const SubjectManagement: React.FC = () => {
             setSubjects(subjects.filter(s => s.id !== id));
         } catch (err) {
             console.error('Error deleting subject:', err);
-            alert('Failed to delete subject.');
+            alert('Failed to delete subject assignment.');
         }
     };
 

@@ -114,6 +114,26 @@ export const onboardingService = {
         return data;
     },
 
+    createSubjectInCatalog: async (name: string, category?: string) => {
+        const { data, error } = await supabase
+            .from('subject_catalog')
+            .insert({ name, category })
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    assignSubjectToClass: async (class_id: string, subject_id: string, school_id: string) => {
+        const { data, error } = await supabase
+            .from('class_subjects')
+            .insert({ class_id, subject_id, school_id })
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
 
     // Helpers
     getClasses: async (school_id: string) => {
