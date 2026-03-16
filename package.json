@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "schema-check": "node .inspector/schema_drift_sentinel.cjs"
+    "schema-check": "node .inspector/schema_drift_sentinel.cjs",
+    "architecture-check": "node .inspector/architecture_guardian.cjs"
   },
   "dependencies": {
     "@google/genai": "^1.33.0",

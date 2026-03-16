@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Plus, Trash2, Library, Loader2, BookOpen } from 'lucide-react';
+import { onboardingService } from '../services/onboardingService';
 
 interface SubjectData {
     id: string;
@@ -36,8 +37,8 @@ const SubjectManagement: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [classesRes, subjectsRes] = await Promise.all([
-                supabase.from('classes').select('id, name').eq('school_id', schoolId).order('created_at'),
+            const [classesData, subjectsRes] = await Promise.all([
+                onboardingService.getClasses(schoolId!),
                 supabase
                     .from('class_subjects')
                     .select(`
@@ -54,7 +55,7 @@ const SubjectManagement: React.FC = () => {
                     .order('classes(name)')
             ]);
 
-            if (classesRes.data) setClasses(classesRes.data);
+            if (classesData) setClasses(classesData as any);
             if (subjectsRes.data) {
                 // Flatten the data for the UI
                 const flattened = subjectsRes.data.map((s: any) => ({
@@ -89,40 +90,21 @@ const SubjectManagement: React.FC = () => {
             if (existing) {
                 subjectId = existing.id;
             } else {
-                const { data: created, error: createError } = await supabase
-                    .from('subject_catalog')
-                    .insert({ name: newSubjectName.trim() })
-                    .select()
-                    .single();
-                if (createError) throw createError;
+                const created = await onboardingService.createSubjectInCatalog(newSubjectName.trim());
                 subjectId = created.id;
             }
 
             // Step 2: Assign to class
-            const { data, error } = await supabase
-                .from('class_subjects')
-                .insert([{ 
-                    subject_id: subjectId, 
-                    class_id: selectedClassId,
-                    school_id: schoolId 
-                }])
-                .select(`
-                    id,
-                    class_id,
-                    subject_id,
-                    subject_catalog!inner(name),
-                    classes!inner(name)
-                `)
-                .single();
-
-            if (error) throw error;
+            const data = await onboardingService.assignSubjectToClass(selectedClassId, subjectId, schoolId!);
 
             if (data) {
+                // Refetch or manually add to state with joined data
+                // For simplicity, we can fetch Joined data from service or manually construct it
                 const newEntry = {
                     id: data.id,
-                    name: (data as any).subject_catalog.name,
-                    class_id: data.class_id,
-                    classes: (data as any).classes
+                    name: newSubjectName.trim(), 
+                    class_id: selectedClassId,
+                    classes: classes.find(c => c.id === selectedClassId)
                 };
                 setSubjects([...subjects, newEntry]);
                 setNewSubjectName('');
@@ -140,13 +122,7 @@ const SubjectManagement: React.FC = () => {
         if (!confirm('Are you sure you want to delete this subject assignment?')) return;
 
         try {
-            const { error } = await supabase
-                .from('class_subjects')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
+            await onboardingService.deleteSubjectAssignment(id);
             setSubjects(subjects.filter(s => s.id !== id));
         } catch (err) {
             console.error('Error deleting subject:', err);

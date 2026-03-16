@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Loader2, Play, CheckCircle, BrainCircuit } from 'lucide-react';
-import { gradeEssay } from '../services/geminiService';
+import { gradingService } from '../services/gradingService';
 
 const GradingQueue: React.FC = () => {
     const { schoolId } = useStore();
@@ -21,23 +20,12 @@ const GradingQueue: React.FC = () => {
     const fetchData = async () => {
         if (!schoolId) return;
         try {
-            // 1. Fetch scripts that aren't graded yet
-            const scriptsRes = await supabase
-                .from('answer_scripts')
-                .select('id, grading_status')
-                .eq('grading_status', 'pending');
+            // QUERY SIGNAL: LOAD_GRADING_STATUS
+            const { pendingScripts: scripts, activeJobs: jobs } = await gradingService.loadGradingStatus();
+            setPendingScripts(scripts);
+            setActiveJobs(jobs);
 
-            if (scriptsRes.data) setPendingScripts(scriptsRes.data);
-
-            // 2. Fetch active jobs to show progress
-            const jobsRes = await supabase
-                .from('grading_jobs')
-                .select('id, status, script_id')
-                .in('status', ['pending', 'processing']);
-
-            if (jobsRes.data) setActiveJobs(jobsRes.data);
-
-            if (jobsRes.data?.length === 0 && isProcessing) {
+            if (jobs.length === 0 && isProcessing) {
                 setIsProcessing(false);
                 setStatus('Grading session complete!');
             }
@@ -50,33 +38,12 @@ const GradingQueue: React.FC = () => {
         if (pendingScripts.length === 0) return;
         setIsProcessing(true);
         setError(null);
-        setStatus('Enqueuing scripts...');
+        setStatus('Triggering AI Workers...');
 
         try {
-            // 1. Create jobs for all pending scripts
-            const jobEntries = pendingScripts.map(s => ({
-                script_id: s.id,
-                status: 'pending'
-            }));
-
-            const { error: queueError } = await supabase
-                .from('grading_jobs')
-                .insert(jobEntries);
-
-            if (queueError) throw queueError;
-
-            // 2. Update script status to queued
-            const { error: updateError } = await supabase
-                .from('answer_scripts')
-                .update({ grading_status: 'queued' })
-                .in('id', pendingScripts.map(s => s.id));
-
-            if (updateError) throw updateError;
-
-            // 3. Trigger initial worker run
+            // WORKER SIGNAL: START_AI_GRADING
+            await gradingService.startAIGrading();
             setStatus('Worker triggered...');
-            await supabase.functions.invoke('grade-script');
-
         } catch (err: any) {
             console.error('START_GRADING_FAILURE:', err);
             setError(err.message);

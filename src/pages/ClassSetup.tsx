@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Plus, Trash2, Users, Loader2 } from 'lucide-react';
+import { onboardingService } from '../services/onboardingService';
 
 interface ClassData {
     id: string;
@@ -27,13 +28,8 @@ const ClassSetup: React.FC = () => {
 
     const fetchClasses = async () => {
         try {
-            const { data, error } = await supabase
-                .from('classes')
-                .select('*')
-                .eq('school_id', schoolId)
-                .order('created_at', { ascending: true });
-
-            if (error) throw error;
+            // Using service helper to get classes
+            const data = await onboardingService.getClasses(schoolId!);
             setClasses(data || []);
         } catch (err) {
             console.error('Error fetching classes:', err);
@@ -48,15 +44,13 @@ const ClassSetup: React.FC = () => {
 
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('classes')
-                .insert([{ name: newClassName.trim(), school_id: schoolId }])
-                .select();
-
-            if (error) throw error;
+            const data = await onboardingService.createClass({ 
+                name: newClassName.trim(), 
+                school_id: schoolId 
+            });
 
             if (data) {
-                setClasses([...classes, data[0]]);
+                setClasses([...classes, data]);
                 setNewClassName('');
             }
         } catch (err) {
@@ -71,13 +65,7 @@ const ClassSetup: React.FC = () => {
         if (!confirm('Are you sure you want to delete this class?')) return;
 
         try {
-            const { error } = await supabase
-                .from('classes')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
+            await onboardingService.deleteClass(id);
             setClasses(classes.filter(c => c.id !== id));
         } catch (err) {
             console.error('Error deleting class:', err);

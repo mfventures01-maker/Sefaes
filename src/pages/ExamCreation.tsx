@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { FileText, Loader2, PlusCircle, Check, Trash2 } from 'lucide-react';
+import { gradingService } from '../services/gradingService';
 import { MarkingScheme } from '../types';
 
 const ExamCreation: React.FC = () => {
@@ -45,7 +46,7 @@ const ExamCreation: React.FC = () => {
             try {
                 const [clsRes, subjRes] = await Promise.all([
                     supabase.from('classes').select('*').eq('school_id', schoolId),
-                    supabase.from('subjects').select('*')
+                    supabase.from('subject_catalog').select('*') // Updated to catalog
                 ]);
 
                 if (clsRes.data) setClasses(clsRes.data);
@@ -79,17 +80,14 @@ const ExamCreation: React.FC = () => {
 
             if (markingScheme.rubric.length === 0) throw new Error('Add at least one rubric criterion');
 
-            const { error: insertError } = await supabase
-                .from('exams')
-                .insert([{
-                    exam_title: formData.exam_title,
-                    subject_id: formData.subject_id,
-                    class_id: formData.class_id,
-                    exam_date: formData.exam_date,
-                    marking_scheme: markingScheme
-                }]);
-
-            if (insertError) throw insertError;
+            await gradingService.createExam({
+                exam_title: formData.exam_title,
+                subject_id: formData.subject_id,
+                class_id: formData.class_id,
+                exam_date: formData.exam_date,
+                marking_scheme: markingScheme,
+                school_id: schoolId
+            });
 
             setSuccess(true);
             setFormData({

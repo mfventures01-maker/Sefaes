@@ -3,9 +3,11 @@ import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { UploadCloud, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { performOCR } from '../services/geminiService';
+import { gradingService } from '../services/gradingService';
+import { identityService } from '../services/identityService';
 
 const ScriptUpload: React.FC = () => {
-    const { schoolId } = useStore();
+    const { schoolId, teacherId, setTeacherId } = useStore();
     const [exams, setExams] = useState<{ id: string; exam_title: string; class_id: string }[]>([]);
     const [students, setStudents] = useState<{ id: string; first_name: string; last_name: string; class_id: string }[]>([]);
 
@@ -19,16 +21,29 @@ const ScriptUpload: React.FC = () => {
 
     useEffect(() => {
         if (!schoolId) return;
+
         const fetchData = async () => {
-            const [examsRes, studentsRes] = await Promise.all([
-                supabase.from('exams').select('id, exam_title, class_id'),
-                supabase.from('students').select('id, first_name, last_name, class_id')
-            ]);
-            if (examsRes.data) setExams(examsRes.data);
-            if (studentsRes.data) setStudents(studentsRes.data);
+            try {
+                // Ensure teacher identity is resolved
+                if (!teacherId) {
+                    const identity = await identityService.resolveTeacher();
+                    if (identity) {
+                        setTeacherId(identity.teacher_id);
+                    }
+                }
+
+                const [examsRes, studentsRes] = await Promise.all([
+                    supabase.from('exams').select('id, exam_title, class_id').eq('school_id', schoolId),
+                    supabase.from('students').select('id, first_name, last_name, class_id').eq('classes.school_id', schoolId)
+                ]);
+                if (examsRes.data) setExams(examsRes.data);
+                if (studentsRes.data) setStudents(studentsRes.data);
+            } catch (err) {
+                console.error('FETCH_DATA_ERROR:', err);
+            }
         };
         fetchData();
-    }, [schoolId]);
+    }, [schoolId, teacherId]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setError(null);
@@ -53,12 +68,18 @@ const ScriptUpload: React.FC = () => {
             return;
         }
 
+        if (!teacherId || !schoolId) {
+            setError('Missing identity context. Please re-login.');
+            return;
+        }
+
         setIsProcessing(true);
         setStatus('Processing images...');
         setError(null);
 
         try {
             let combinedOcrText = '';
+            let fileUrls: string[] = [];
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -71,25 +92,30 @@ const ScriptUpload: React.FC = () => {
                 const text = await performOCR(base64);
                 combinedOcrText += text + '\n\n';
 
-                // 3. Optional: Upload to Supabase Storage (Mocked or real if bucket exists)
+                // 3. Upload to Supabase Storage
                 setStatus(`Uploading file ${i + 1}...`);
                 const fileName = `${selectedExamId}/${selectedStudentId}_${Date.now()}_${i}`;
-                await supabase.storage.from('scripts').upload(fileName, file).catch(() => console.log('Storage bucket might not exist yet'));
+                const { data: uploadData } = await supabase.storage
+                    .from('scripts')
+                    .upload(fileName, file);
+
+                if (uploadData) {
+                    const { data: urlData } = supabase.storage.from('scripts').getPublicUrl(fileName);
+                    fileUrls.push(urlData.publicUrl);
+                }
             }
 
             setStatus('Saving record...');
 
-            // 4. Save to Answer Scripts database table
-            const { error: insertError } = await supabase
-                .from('answer_scripts')
-                .insert([{
-                    student_id: selectedStudentId,
-                    exam_id: selectedExamId,
-                    ocr_text: combinedOcrText,
-                    grading_status: 'pending'
-                }]);
-
-            if (insertError) throw insertError;
+            // 4. Save to Answer Scripts database table using Canonical Signal
+            await gradingService.createAnswerScript({
+                student_id: selectedStudentId,
+                exam_id: selectedExamId,
+                teacher_id: teacherId,
+                school_id: schoolId,
+                ocr_text: combinedOcrText,
+                file_url: fileUrls[0] // Just taking the first one as primary for now
+            });
 
             setSuccess(true);
             setFiles([]);

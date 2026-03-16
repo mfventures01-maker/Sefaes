@@ -62,6 +62,32 @@ export const onboardingService = {
         return data;
     },
 
+    updateSchoolSettings: async (schoolId: string, payload: Partial<SchoolPayload>) => {
+        const { error } = await supabase
+            .from('schools')
+            .update(payload)
+            .eq('id', schoolId);
+        if (error) throw error;
+    },
+
+    createClass: async (payload: { name: string; school_id: string }) => {
+        const { data, error } = await supabase
+            .from('classes')
+            .insert(payload)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    deleteClass: async (id: string) => {
+        const { error } = await supabase
+            .from('classes')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
+    },
+
     // Stage 3: Academic Structure Initialization
     initializeSecondaryClasses: async (school_id: string) => {
         const { data, error } = await supabase.rpc('initialize_secondary_classes', { school_id });
@@ -108,6 +134,13 @@ export const onboardingService = {
         return data;
     },
 
+    bulkEnrollStudents: async (rows: StudentPayload[]) => {
+        const { error } = await supabase
+            .from('students')
+            .insert(rows);
+        if (error) throw error;
+    },
+
     enrollStudentSubjects: async (student_id: string) => {
         const { data, error } = await supabase.rpc('enroll_student_subjects', { student_id });
         if (error) throw error;
@@ -132,6 +165,14 @@ export const onboardingService = {
             .single();
         if (error) throw error;
         return data;
+    },
+
+    deleteSubjectAssignment: async (id: string) => {
+        const { error } = await supabase
+            .from('class_subjects')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
     },
 
 

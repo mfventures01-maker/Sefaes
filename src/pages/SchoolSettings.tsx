@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Building, Phone, Mail, User, MapPin, Loader2, Save, CheckCircle } from 'lucide-react';
+import { onboardingService } from '../services/onboardingService';
 
 const SchoolSettings: React.FC = () => {
     const { schoolId } = useStore();
@@ -64,12 +65,7 @@ const SchoolSettings: React.FC = () => {
         setError(null);
 
         try {
-            const { error: updateError } = await supabase
-                .from('schools')
-                .update(formData)
-                .eq('id', schoolId);
-
-            if (updateError) throw updateError;
+            await onboardingService.updateSchoolSettings(schoolId, formData as any);
             setSuccess(true);
         } catch (err: any) {
             console.error(err);

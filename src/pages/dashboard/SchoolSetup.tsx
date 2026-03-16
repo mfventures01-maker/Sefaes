@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStore } from '../../lib/store';
+import { onboardingService } from '../../services/onboardingService';
 import { Layout, BookOpen, Users, PlusCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 const SchoolSetup: React.FC = () => {
@@ -18,15 +19,15 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { error } = await supabase.from('classes').insert({
+            await onboardingService.createClass({
                 name: className,
                 school_id: schoolId
             });
-            if (error) throw error;
             setSuccess(`Class ${className} created!`);
             setClassName('');
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            alert(err.message || "Failed to create class");
         } finally {
             setLoading(false);
         }
@@ -36,14 +37,12 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { error } = await supabase.from('subject_catalog').insert({
-                name: subjectName
-            });
-            if (error) throw error;
+            await onboardingService.createSubjectInCatalog(subjectName);
             setSuccess(`Subject ${subjectName} created in catalog!`);
             setSubjectName('');
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            alert(err.message || "Failed to create subject");
         } finally {
             setLoading(false);
         }
@@ -53,15 +52,17 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { error } = await supabase.from('teachers').insert({
+            await onboardingService.createTeacher({
                 name: teacherName,
-                school_id: schoolId
+                school_id: schoolId,
+                email: '', // placeholder for form extension
+                phone: ''  // placeholder for form extension
             });
-            if (error) throw error;
             setSuccess(`Teacher ${teacherName} added!`);
             setTeacherName('');
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            alert(err.message || "Failed to add teacher");
         } finally {
             setLoading(false);
         }

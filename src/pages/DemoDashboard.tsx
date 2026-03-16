@@ -28,6 +28,7 @@ import {
     PieChart,
     Pie
 } from 'recharts';
+import { gradingService } from '../services/gradingService';
 
 const DemoDashboard: React.FC = () => {
     const { schoolId } = useStore();
@@ -94,18 +95,14 @@ const DemoDashboard: React.FC = () => {
                 rubric: [{ criterion: 'Content Accuracy', marks: 10 }],
                 maxScore: 10
             };
-            const { data, error } = await supabase
-                .from('exams')
-                .insert([{
-                    exam_title: examData.exam_title,
-                    subject_id: examData.subject_id || (subjects[0]?.id),
-                    class_id: examData.class_id || (classes[0]?.id),
-                    exam_date: examData.exam_date,
-                    marking_scheme: markingScheme
-                }])
-                .select()
-                .single();
-            if (error) throw error;
+            const data = await gradingService.createExam({
+                exam_title: examData.exam_title,
+                subject_id: examData.subject_id || (subjects[0]?.id),
+                class_id: examData.class_id || (classes[0]?.id),
+                exam_date: examData.exam_date,
+                marking_scheme: markingScheme,
+                school_id: schoolId
+            });
             setCreatedExamId(data.id);
             alert("Exam Created Successfully!");
         } catch (err) {
@@ -154,11 +151,10 @@ const DemoDashboard: React.FC = () => {
                 const text = data.text;
                 results.push({ student: studentFullName, text });
 
-                await supabase.from('answer_scripts').insert({
+                await gradingService.uploadAnswerScript({
                     student_id: student.id,
                     exam_id: createdExamId,
-                    ocr_text: text,
-                    grading_status: 'pending'
+                    ocr_text: text
                 });
             }
             setOcrResults(results);
@@ -176,6 +172,7 @@ const DemoDashboard: React.FC = () => {
         setGovernorError(null);
         setIsGrading(true);
         try {
+            // Fetch pending scripts to know the total count
             const { data: scripts } = await supabase
                 .from('answer_scripts')
                 .select('id')
@@ -184,24 +181,14 @@ const DemoDashboard: React.FC = () => {
 
             if (!scripts || scripts.length === 0) return;
 
-            const jobs = scripts.map(s => ({ script_id: s.id, status: 'pending' }));
-            await supabase.from('grading_jobs').insert(jobs);
-            await supabase.from('answer_scripts').update({ grading_status: 'queued' }).eq('exam_id', createdExamId);
-
             setGradingProgress({ completed: 0, total: scripts.length });
 
-            const { error: invokeError } = await supabase.functions.invoke('grade-script');
-            if (invokeError && invokeError.status === 429) {
-                setGovernorError({ message: "Grading Limit Reached (500/hr)", retryAfter: 15 });
-                throw invokeError;
-            }
+            // Invoke grading via service (which calls edge function)
+            await gradingService.startAIGrading(createdExamId);
 
             let isDone = false;
             while (!isDone) {
-                const { data: resultsData } = await supabase
-                    .from('grading_results')
-                    .select('*, answer_scripts(students(first_name, last_name))')
-                    .in('answer_script_id', scripts.map(s => s.id));
+                const resultsData = await gradingService.getGradingResults(createdExamId, scripts.map(s => s.id));
 
                 if (resultsData) {
                     setResults(resultsData);

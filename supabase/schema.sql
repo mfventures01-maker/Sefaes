@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS answer_scripts (
     teacher_id UUID REFERENCES teachers(id), -- Assigned teacher
     school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
     ocr_text TEXT,
+    file_url TEXT,
     grading_status TEXT DEFAULT 'pending', 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -114,11 +115,11 @@ CREATE TABLE IF NOT EXISTS answer_scripts (
 CREATE TABLE IF NOT EXISTS grading_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     script_id UUID REFERENCES answer_scripts(id) ON DELETE CASCADE,
-    status TEXT DEFAULT 'pending',
-    attempts INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending', -- pending, processing, completed, failed
     worker_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     processed_at TIMESTAMPTZ,
+    attempts INT DEFAULT 0,
     error_message TEXT
 );
 
@@ -143,6 +144,63 @@ CREATE TABLE IF NOT EXISTS ai_usage_logs (
 );
 
 -- 14. Functions & Triggers
+
+-- SIGNAL: CREATE_ANSWER_SCRIPT
+CREATE OR REPLACE FUNCTION create_answer_script(
+    p_student_id UUID,
+    p_exam_id UUID,
+    p_teacher_id UUID,
+    p_school_id UUID,
+    p_ocr_text TEXT,
+    p_file_url TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_script_id UUID;
+BEGIN
+    INSERT INTO answer_scripts (
+        student_id, exam_id, teacher_id, school_id, ocr_text, file_url, grading_status
+    )
+    VALUES (
+        p_student_id, p_exam_id, p_teacher_id, p_school_id, p_ocr_text, p_file_url, 'pending'
+    )
+    RETURNING id INTO new_script_id;
+
+    RETURN jsonb_build_object(
+        'script_id', new_script_id,
+        'status', 'pending'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: FINALIZE_GRADING
+CREATE OR REPLACE FUNCTION finalize_grading(
+    p_script_id UUID,
+    p_score NUMERIC,
+    p_feedback TEXT,
+    p_confidence NUMERIC
+)
+RETURNS VOID AS $$
+BEGIN
+    -- 1. Insert into results
+    INSERT INTO grading_results (answer_script_id, score, ai_feedback, confidence)
+    VALUES (p_script_id, p_score, p_feedback, p_confidence);
+
+    -- 2. Update script status
+    UPDATE answer_scripts 
+    SET grading_status = 'completed'
+    WHERE id = p_script_id;
+
+    -- 3. Mark job as completed
+    UPDATE grading_jobs
+    SET status = 'completed'
+    WHERE script_id = p_script_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Atomic Job Claiming Function
+
+--
 
 -- Atomic Job Claiming Function
 CREATE OR REPLACE FUNCTION claim_grading_jobs(batch_size_limit INT)

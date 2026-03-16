@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Upload, FileText, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { onboardingService } from '../services/onboardingService';
 
 interface StudentRow {
     first_name: string;
@@ -25,7 +26,7 @@ const StudentUpload: React.FC = () => {
     useEffect(() => {
         const fetchClasses = async () => {
             if (!schoolId) return;
-            const { data } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
+            const data = await onboardingService.getClasses(schoolId);
             if (data) setClasses(data as any);
         };
         fetchClasses();
@@ -69,11 +70,7 @@ const StudentUpload: React.FC = () => {
                         throw new Error('No valid rows found. Ensure CSV has headers: first_name, last_name, student_number, gender, date_of_birth');
                     }
 
-                    const { error: insertError } = await supabase
-                        .from('students')
-                        .insert(validData);
-
-                    if (insertError) throw insertError;
+                    await onboardingService.bulkEnrollStudents(validData);
 
                     setSuccessCount(validData.length);
                     setFile(null);
