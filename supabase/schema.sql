@@ -318,3 +318,43 @@ BEGIN
     RETURN row_to_json(teacher_record)::jsonb;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 16. Resilience Layer & Monitoring (Resonance Protocol)
+
+-- Self-Healing: Reset stuck jobs (e.g., processing for > 1 hour)
+CREATE OR REPLACE FUNCTION reset_stuck_grading_jobs()
+RETURNS INT AS $$
+DECLARE
+    reset_count INT;
+BEGIN
+    UPDATE grading_jobs
+    SET status = 'pending',
+        worker_id = NULL,
+        processed_at = NULL,
+        attempts = attempts + 1
+    WHERE status = 'processing'
+    AND processed_at < now() - interval '1 hour';
+    
+    GET DIAGNOSTICS reset_count = ROW_COUNT;
+    RETURN reset_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Monitoring View: Pipeline Health
+CREATE OR REPLACE VIEW pipeline_health AS
+SELECT 
+    (SELECT count(*) FROM answer_scripts) as total_uploads,
+    (SELECT count(*) FROM grading_jobs WHERE status = 'pending') as queue_pending,
+    (SELECT count(*) FROM grading_jobs WHERE status = 'processing') as queue_processing,
+    (SELECT count(*) FROM grading_results) as total_graded,
+    (SELECT AVG(confidence) FROM grading_results) as avg_ai_confidence;
+
+-- Monitoring View: Queue Health
+CREATE OR REPLACE VIEW queue_health AS
+SELECT 
+    status,
+    count(*) as job_count,
+    MAX(created_at) as latest_job,
+    MIN(created_at) as oldest_job
+FROM grading_jobs
+GROUP BY status;
