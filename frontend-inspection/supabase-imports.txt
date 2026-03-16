@@ -1,0 +1,1 @@
+﻿C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\lib\supabase.ts:1:import { createClient } from '@supabase/supabase-js';

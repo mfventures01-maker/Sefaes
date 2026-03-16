@@ -1,0 +1,1 @@
+﻿C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\pages\ScriptUpload.tsx:77:                await supabase.storage.from('scripts').upload(fileName, file).catch(() => console.log('Storage bucket might not exist yet'));

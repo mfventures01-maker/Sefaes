@@ -194,8 +194,17 @@ AFTER INSERT ON answer_scripts
 FOR EACH ROW
 EXECUTE FUNCTION queue_grading_job();
 
--- RLS Enforcement Policy (Enable as needed)
--- ALTER TABLE answer_scripts ENABLE ROW LEVEL SECURITY;
+-- 13.5 Profiles Table (Shared Identity for RBAC & Handshake Resonance)
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL,
+    institution_id UUID REFERENCES institutions(id) ON DELETE CASCADE,
+    full_name TEXT,
+    role TEXT CHECK (role IN ('principal_admin', 'teacher', 'student', 'examiner')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 14. Functions & Triggers (Existing triggers above)
 
 -- 15. Core RPC Functions (Deterministic Onboarding)
 
@@ -219,6 +228,10 @@ BEGIN
     
     INSERT INTO principals (user_id, school_id, name, email)
     VALUES (admin_uid, NULL, institution_name || ' Admin', admin_email);
+
+    -- Also create a central profile record for session handshake
+    INSERT INTO profiles (user_id, institution_id, full_name, role)
+    VALUES (admin_uid, new_inst_id, institution_name || ' Admin', 'principal_admin');
     
     RETURN jsonb_build_object(
         'institution_id', new_inst_id,

@@ -23,10 +23,11 @@ export const institutionService = {
         const { data: institution, error: insertError } = await supabase
             .from("institutions")
             .insert({
-                name: institutionData.name,
-                type: institutionData.type,
+                institution_name: institutionData.name,
+                institution_type: institutionData.type,
                 country: institutionData.country,
-                state: institutionData.state
+                state: institutionData.state,
+                admin_email: user.email // Syncing admin email from auth context
             })
             .select()
             .single();

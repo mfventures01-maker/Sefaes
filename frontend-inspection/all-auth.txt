@@ -1,0 +1,2 @@
+﻿C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\hooks\useAuthGuard.ts:24:                const { data: { session } } = await supabase.auth.getSession();
+C:\Users\Administrator\Downloads\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\sefaes-sentiment-and-emotion-free-assesment-and-evaluation\src\services\institutionService.ts:17:        const { data: { user }, error: authError } = await supabase.auth.getUser();
