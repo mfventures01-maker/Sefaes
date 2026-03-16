@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Plus, Trash2, Users, Loader2 } from 'lucide-react';
 import { onboardingService } from '../services/onboardingService';
@@ -38,19 +37,19 @@ const ClassSetup: React.FC = () => {
         }
     };
 
-    const handeAddClass = async (e: React.FormEvent) => {
+    const handleAddClass = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newClassName.trim() || !schoolId) return;
 
         setLoading(true);
         try {
-            const data = await onboardingService.createClass({ 
-                name: newClassName.trim(), 
-                school_id: schoolId 
+            const data = await onboardingService.createClass({
+                name: newClassName.trim(),
+                school_id: schoolId
             });
 
             if (data) {
-                setClasses([...classes, data]);
+                setClasses([...classes, data as any]);
                 setNewClassName('');
             }
         } catch (err) {
@@ -92,7 +91,7 @@ const ClassSetup: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                <form onSubmit={handeAddClass} className="flex gap-4">
+                <form onSubmit={handleAddClass} className="flex gap-4">
                     <div className="flex-1">
                         <input
                             type="text"

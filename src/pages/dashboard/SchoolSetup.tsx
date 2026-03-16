@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useStore } from '../../lib/store';
 import { onboardingService } from '../../services/onboardingService';
 import { Layout, BookOpen, Users, PlusCircle, CheckCircle, Loader2 } from 'lucide-react';
@@ -21,7 +20,7 @@ const SchoolSetup: React.FC = () => {
         try {
             await onboardingService.createClass({
                 name: className,
-                school_id: schoolId
+                school_id: schoolId!
             });
             setSuccess(`Class ${className} created!`);
             setClassName('');
@@ -54,7 +53,7 @@ const SchoolSetup: React.FC = () => {
         try {
             await onboardingService.createTeacher({
                 name: teacherName,
-                school_id: schoolId,
+                school_id: schoolId!,
                 email: '', // placeholder for form extension
                 phone: ''  // placeholder for form extension
             });

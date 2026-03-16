@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Building2, User, MapPin, Mail, Phone, Loader2, ArrowRight } from 'lucide-react';
+import { onboardingService } from '../services/onboardingService';
 
 const SchoolRegistration: React.FC = () => {
     const navigate = useNavigate();
@@ -28,19 +28,15 @@ const SchoolRegistration: React.FC = () => {
         setError(null);
 
         try {
-            const { data, error: insertError } = await supabase.rpc('create_school_with_classes', {
-                p_school_name: formData.school_name,
-                p_school_type: 'Secondary', // Defaulting to Secondary as per current UI
-                p_email: formData.email,
-                p_phone: formData.phone,
-                p_address: formData.address,
-                p_logo_url: '',
-                p_principal_name: formData.principal_name,
-                p_vice_principal_name: '',
-                p_institution_id: null
+            const data = await onboardingService.createSchool({
+                school_name: formData.school_name,
+                school_type: 'Secondary',
+                address: formData.address,
+                email: formData.email,
+                phone: formData.phone,
+                principal_name: formData.principal_name,
+                institution_id: '' // No institution selected yet in this legacy flow
             });
-
-            if (insertError) throw insertError;
 
             if (data && (data as any).id) {
                 setSchoolId((data as any).id);

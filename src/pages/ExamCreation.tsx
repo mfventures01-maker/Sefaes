@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { FileText, Loader2, PlusCircle, Check, Trash2 } from 'lucide-react';
 import { gradingService } from '../services/gradingService';
+import { classService } from '../services/classService';
+import { subjectService } from '../services/subjectService';
 import { MarkingScheme } from '../types';
 
 const ExamCreation: React.FC = () => {
@@ -44,13 +45,13 @@ const ExamCreation: React.FC = () => {
 
         const fetchDropdowns = async () => {
             try {
-                const [clsRes, subjRes] = await Promise.all([
-                    supabase.from('classes').select('*').eq('school_id', schoolId),
-                    supabase.from('subject_catalog').select('*') // Updated to catalog
+                const [clsData, subjData] = await Promise.all([
+                    classService.getClasses(schoolId),
+                    subjectService.getSubjectCatalog()
                 ]);
 
-                if (clsRes.data) setClasses(clsRes.data);
-                if (subjRes.data) setSubjects(subjRes.data);
+                if (clsData) setClasses(clsData as any);
+                if (subjData) setSubjects(subjData as any);
             } catch (err) {
                 console.error('Error fetching dropdowns', err);
             }
@@ -81,12 +82,12 @@ const ExamCreation: React.FC = () => {
             if (markingScheme.rubric.length === 0) throw new Error('Add at least one rubric criterion');
 
             await gradingService.createExam({
-                exam_title: formData.exam_title,
-                subject_id: formData.subject_id,
-                class_id: formData.class_id,
-                exam_date: formData.exam_date,
-                marking_scheme: markingScheme,
-                school_id: schoolId
+                p_exam_title: formData.exam_title,
+                p_subject_id: formData.subject_id,
+                p_class_id: formData.class_id,
+                p_exam_date: formData.exam_date,
+                p_marking_scheme: markingScheme,
+                p_school_id: schoolId
             });
 
             setSuccess(true);

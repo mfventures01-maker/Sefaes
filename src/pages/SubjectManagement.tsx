@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Plus, Trash2, Library, Loader2, BookOpen } from 'lucide-react';
 import { onboardingService } from '../services/onboardingService';
@@ -37,30 +36,17 @@ const SubjectManagement: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [classesData, subjectsRes] = await Promise.all([
+            const [classesData, subjectsData] = await Promise.all([
                 onboardingService.getClasses(schoolId!),
-                supabase
-                    .from('class_subjects')
-                    .select(`
-                        id,
-                        class_id,
-                        subject_id,
-                        subject_catalog!inner(name),
-                        classes!inner (
-                            name,
-                            school_id
-                        )
-                    `)
-                    .eq('classes.school_id', schoolId)
-                    .order('classes(name)')
+                onboardingService.getClassSubjects(schoolId!)
             ]);
 
             if (classesData) setClasses(classesData as any);
-            if (subjectsRes.data) {
+            if (subjectsData) {
                 // Flatten the data for the UI
-                const flattened = subjectsRes.data.map((s: any) => ({
+                const flattened = subjectsData.map((s: any) => ({
                     id: s.id,
-                    name: s.subject_catalog.name,
+                    name: s.subject_catalog?.name || 'Unknown',
                     class_id: s.class_id,
                     classes: s.classes
                 }));
@@ -79,30 +65,17 @@ const SubjectManagement: React.FC = () => {
 
         setLoading(true);
         try {
-            // Step 1: Ensure subject exists in catalog
-            let subjectId;
-            const { data: existing } = await supabase
-                .from('subject_catalog')
-                .select('id')
-                .eq('name', newSubjectName.trim())
-                .maybeSingle();
-
-            if (existing) {
-                subjectId = existing.id;
-            } else {
-                const created = await onboardingService.createSubjectInCatalog(newSubjectName.trim());
-                subjectId = created.id;
-            }
+            // Service handles catalog creation if needed (Signal: CREATE_SUBJECT_IN_CATALOG)
+            const created = await onboardingService.createSubjectInCatalog(newSubjectName.trim());
+            const subjectId = created.id;
 
             // Step 2: Assign to class
             const data = await onboardingService.assignSubjectToClass(selectedClassId, subjectId, schoolId!);
 
             if (data) {
-                // Refetch or manually add to state with joined data
-                // For simplicity, we can fetch Joined data from service or manually construct it
                 const newEntry = {
                     id: data.id,
-                    name: newSubjectName.trim(), 
+                    name: newSubjectName.trim(),
                     class_id: selectedClassId,
                     classes: classes.find(c => c.id === selectedClassId)
                 };

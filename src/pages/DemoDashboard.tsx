@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import {
     BrainCircuit,
@@ -29,9 +28,13 @@ import {
     Pie
 } from 'recharts';
 import { gradingService } from '../services/gradingService';
+import { classService } from '../services/classService';
+import { subjectService } from '../services/subjectService';
+import { identityService } from '../services/identityService';
+import { supabase } from '../lib/supabase';
 
 const DemoDashboard: React.FC = () => {
-    const { schoolId } = useStore();
+    const { schoolId, teacherId, setTeacherId } = useStore();
 
     // Panel 1: Exam Data
     const [examData, setExamData] = useState({
@@ -61,26 +64,33 @@ const DemoDashboard: React.FC = () => {
     const [results, setResults] = useState<any[]>([]);
 
     // Panel 6: Intelligence
-    const [insights, setInsights] = useState<{ weak_topics: string[], remediation_advice: string } | null>(null);
+    const [insights, setInsights] = useState<{ weak_topics: string[], remediation_advice: string, class_average?: number } | null>(null);
     const [governorError, setGovernorError] = useState<{ message: string, retryAfter: number } | null>(null);
 
     // Load initial data
     useEffect(() => {
         if (!schoolId) return;
         const loadInitialData = async () => {
-            const [subjRes, classRes] = await Promise.all([
-                supabase.from('subjects').select('*'),
-                supabase.from('classes').select('id, name, school_id').eq('school_id', schoolId)
+            // Ensure teacher identity
+            if (!teacherId) {
+                const identity = await identityService.resolveTeacher();
+                if (identity) setTeacherId(identity.teacher_id);
+            }
+
+            const [subjData, classData] = await Promise.all([
+                subjectService.getSubjectCatalog(),
+                classService.getClasses(schoolId)
             ]);
 
-            if (subjRes.data) setSubjects(subjRes.data);
-            if (classRes.data) {
-                setClasses(classRes.data);
-                const { data: studentData } = await supabase
-                    .from('students')
-                    .select('id, first_name, last_name, class_id')
-                    .eq('class_id', classRes.data[0]?.id || '');
-                if (studentData) setStudents(studentData);
+            if (subjData) setSubjects(subjData);
+            if (classData) {
+                setClasses(classData);
+                // For demo, just load students from the first class
+                if (classData[0]) {
+                    const studentData = await gradingService.loadStudents(schoolId);
+                    const filtered = (studentData as any[])?.filter(s => s.class_id === classData[0].id) || [];
+                    setStudents(filtered);
+                }
             }
         };
         loadInitialData();
@@ -96,14 +106,14 @@ const DemoDashboard: React.FC = () => {
                 maxScore: 10
             };
             const data = await gradingService.createExam({
-                exam_title: examData.exam_title,
-                subject_id: examData.subject_id || (subjects[0]?.id),
-                class_id: examData.class_id || (classes[0]?.id),
-                exam_date: examData.exam_date,
-                marking_scheme: markingScheme,
-                school_id: schoolId
+                p_exam_title: examData.exam_title,
+                p_subject_id: examData.subject_id || (subjects[0]?.id),
+                p_class_id: examData.class_id || (classes[0]?.id),
+                p_exam_date: examData.exam_date,
+                p_marking_scheme: markingScheme,
+                p_school_id: schoolId
             });
-            setCreatedExamId(data.id);
+            setCreatedExamId((data as any).id);
             alert("Exam Created Successfully!");
         } catch (err) {
             console.error(err);
@@ -125,6 +135,10 @@ const DemoDashboard: React.FC = () => {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !createdExamId) return;
         setGovernorError(null);
+        if (!teacherId || !schoolId) {
+            alert("No identity context. Reloading...");
+            return;
+        }
         const uploadFiles: File[] = Array.from(e.target.files);
         setFiles(uploadFiles);
         setIsUploading(true);
@@ -151,10 +165,12 @@ const DemoDashboard: React.FC = () => {
                 const text = data.text;
                 results.push({ student: studentFullName, text });
 
-                await gradingService.uploadAnswerScript({
-                    student_id: student.id,
-                    exam_id: createdExamId,
-                    ocr_text: text
+                await gradingService.createAnswerScript({
+                    p_student_id: student.id,
+                    p_exam_id: createdExamId,
+                    p_teacher_id: teacherId,
+                    p_school_id: schoolId,
+                    p_ocr_text: text
                 });
             }
             setOcrResults(results);
@@ -173,11 +189,7 @@ const DemoDashboard: React.FC = () => {
         setIsGrading(true);
         try {
             // Fetch pending scripts to know the total count
-            const { data: scripts } = await supabase
-                .from('answer_scripts')
-                .select('id')
-                .eq('exam_id', createdExamId)
-                .eq('grading_status', 'pending');
+            const scripts = await gradingService.getPendingScripts(createdExamId);
 
             if (!scripts || scripts.length === 0) return;
 
@@ -188,24 +200,20 @@ const DemoDashboard: React.FC = () => {
 
             let isDone = false;
             while (!isDone) {
-                const resultsData = await gradingService.getGradingResults(createdExamId, scripts.map(s => s.id));
+                const resultsData = await gradingService.loadGradingResults(scripts.map((s: any) => s.id));
 
                 if (resultsData) {
-                    setResults(resultsData);
-                    setGradingProgress({ completed: resultsData.length, total: scripts.length });
-                    if (resultsData.length >= scripts.length) isDone = true;
+                    setResults(resultsData as any[]);
+                    setGradingProgress({ completed: (resultsData as any[]).length, total: scripts.length });
+                    if ((resultsData as any[]).length >= scripts.length) isDone = true;
                 }
                 if (!isDone) await new Promise(r => setTimeout(r, 2000));
             }
 
             // Fetch Intelligence Insights
-            const { data: insightData } = await supabase
-                .from('class_insights')
-                .select('*')
-                .eq('exam_id', createdExamId)
-                .single();
+            const insightData = await gradingService.getClassInsights(createdExamId);
 
-            if (insightData) setInsights(insightData);
+            if (insightData) setInsights(insightData as any);
 
         } catch (err) {
             console.error(err);

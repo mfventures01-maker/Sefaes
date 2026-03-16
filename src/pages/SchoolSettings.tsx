@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Building, Phone, Mail, User, MapPin, Loader2, Save, CheckCircle } from 'lucide-react';
-import { onboardingService } from '../services/onboardingService';
+import { schoolService } from '../services/schoolService';
 
 const SchoolSettings: React.FC = () => {
     const { schoolId } = useStore();
@@ -29,13 +28,7 @@ const SchoolSettings: React.FC = () => {
 
     const fetchSchoolData = async () => {
         try {
-            const { data, error } = await supabase
-                .from('schools')
-                .select('*')
-                .eq('id', schoolId)
-                .single();
-
-            if (error) throw error;
+            const data = await schoolService.getSchoolProfile(schoolId!);
             if (data) {
                 setFormData({
                     school_name: data.school_name || '',
@@ -65,7 +58,14 @@ const SchoolSettings: React.FC = () => {
         setError(null);
 
         try {
-            await onboardingService.updateSchoolSettings(schoolId, formData as any);
+            await schoolService.updateSchoolSettings({
+                p_school_id: schoolId,
+                p_school_name: formData.school_name,
+                p_address: formData.address,
+                p_principal_name: formData.principal_name,
+                p_email: formData.email,
+                p_phone: formData.phone
+            });
             setSuccess(true);
         } catch (err: any) {
             console.error(err);

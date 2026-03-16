@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useStore } from '../../lib/store';
 import {
     Users,
@@ -25,6 +24,7 @@ import {
     LineChart,
     Line
 } from 'recharts';
+import { schoolService } from '../../services/schoolService';
 
 const PrincipalTerminal: React.FC = () => {
     const { schoolId } = useStore();
@@ -45,23 +45,8 @@ const PrincipalTerminal: React.FC = () => {
     const fetchPrincipalData = async () => {
         setLoading(true);
         try {
-            // Fetch stats in parallel
-            const [students, teachers, exams, results] = await Promise.all([
-                supabase.from('students').select('id, classes!inner(school_id)', { count: 'exact', head: true }).eq('classes.school_id', schoolId),
-                supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('exams').select('id', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('grading_results').select('score').eq('answer_scripts.school_id', schoolId)
-            ]);
-
-            const scores = (results.data ?? []).map(r => Number(r.score));
-            const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-
-            setStats({
-                totalStudents: students.count || 0,
-                totalTeachers: teachers.count || 0,
-                avgPerformance: Math.round(avg),
-                activeExams: exams.count || 0
-            });
+            const schoolStats = await schoolService.getSchoolStats(schoolId);
+            setStats(schoolStats);
 
             // Mock performance comparison by class for demo
             setPerformanceData([

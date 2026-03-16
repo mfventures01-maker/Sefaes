@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { Upload, FileText, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { onboardingService } from '../services/onboardingService';

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ArrowRight } from 'lucide-react';
+import { institutionService } from '../../services/institutionService';
 
 // Validation helpers
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -49,16 +50,14 @@ const SignupPage: React.FC = () => {
 
             if (!authUser) throw new Error('Failed to retrieve newly created user');
 
-            // STEP 2: Call RPC create_institution_account
-            const { error: rpcError } = await supabase.rpc('create_institution_account', {
+            // STEP 2: Call specialized service (Deterministic RPC)
+            await institutionService.createInstitutionAccount({
                 institution_name: form.institutionName,
                 institution_type: form.institutionType,
                 country: form.country,
                 state: '', // optional or add field if needed
                 admin_email: form.email
             });
-
-            if (rpcError) throw rpcError;
 
             // STEP 3 — Immediately establish a login session
             const { error: loginError } = await supabase.auth.signInWithPassword({

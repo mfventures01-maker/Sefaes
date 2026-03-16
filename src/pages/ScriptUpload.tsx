@@ -32,12 +32,13 @@ const ScriptUpload: React.FC = () => {
                     }
                 }
 
-                const [examsRes, studentsRes] = await Promise.all([
-                    supabase.from('exams').select('id, exam_title, class_id').eq('school_id', schoolId),
-                    supabase.from('students').select('id, first_name, last_name, class_id').eq('classes.school_id', schoolId)
+                const [examsData, studentsData] = await Promise.all([
+                    gradingService.loadExams(schoolId),
+                    gradingService.loadStudents(schoolId)
                 ]);
-                if (examsRes.data) setExams(examsRes.data);
-                if (studentsRes.data) setStudents(studentsRes.data);
+
+                if (examsData) setExams(examsData as any);
+                if (studentsData) setStudents(studentsData as any);
             } catch (err) {
                 console.error('FETCH_DATA_ERROR:', err);
             }
@@ -109,12 +110,12 @@ const ScriptUpload: React.FC = () => {
 
             // 4. Save to Answer Scripts database table using Canonical Signal
             await gradingService.createAnswerScript({
-                student_id: selectedStudentId,
-                exam_id: selectedExamId,
-                teacher_id: teacherId,
-                school_id: schoolId,
-                ocr_text: combinedOcrText,
-                file_url: fileUrls[0] // Just taking the first one as primary for now
+                p_student_id: selectedStudentId,
+                p_exam_id: selectedExamId,
+                p_teacher_id: teacherId,
+                p_school_id: schoolId,
+                p_ocr_text: combinedOcrText,
+                p_file_url: fileUrls[0] // Just taking the first one as primary for now
             });
 
             setSuccess(true);

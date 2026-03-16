@@ -1,214 +1,176 @@
-import { supabase } from '../lib/supabase';
+// ──────────────────────────────────────────────
+// SEFAES DETERMINISTIC SIGNAL PROTOCOL
+// Service: onboardingService (REFACTORED)
+//
+// This service is now a THIN ORCHESTRATION LAYER
+// that delegates all mutations to domain-specific
+// RPC services. No direct table access permitted.
+// ──────────────────────────────────────────────
 
-export interface InstitutionPayload {
-    institution_name: string;
-    institution_type: string;
-    country: string;
-    state: string;
-    admin_email: string;
-    password?: string;
-}
+import { queryTable } from '../lib/rpcClient';
+import { institutionService, InstitutionPayload } from './institutionService';
+import { schoolService, SchoolPayload } from './schoolService';
+import { classService } from './classService';
+import { subjectService } from './subjectService';
+import { teacherService } from './teacherService';
+import { studentService } from './studentService';
 
-export interface SchoolPayload {
+// Re-export types for backward compat
+export type { InstitutionPayload } from './institutionService';
+
+export interface SchoolFormPayload {
     institution_id: string;
     school_name: string;
     school_type: 'Secondary' | 'Primary';
     address: string;
-    email: string;
-    phone: string;
-    logo_url: string;
-    principal_name: string;
-    vice_principal_name: string;
+    email?: string;
+    phone?: string;
+    logo_url?: string;
+    principal_name?: string;
+    vice_principal_name?: string;
 }
 
-export interface TeacherPayload {
+export interface TeacherFormPayload {
     school_id: string;
     name: string;
     email: string;
     phone: string;
 }
 
-export interface StudentPayload {
+export interface StudentFormPayload {
     first_name: string;
     last_name: string;
-    gender: 'male' | 'female';
+    gender: string;
     student_number: string;
     class_id: string;
+    school_id?: string;
     date_of_birth?: string;
 }
 
 export const onboardingService = {
-    // Stage 1: Institution Creation
+    // ── STAGE 1: Institution ────────────────────
     createInstitutionAccount: async (payload: InstitutionPayload) => {
-        const { data, error } = await supabase.rpc('create_institution_account', payload);
-        if (error) throw error;
-        return data as { institution_id: string; admin_user_id: string };
+        return institutionService.createInstitutionAccount(payload);
     },
 
-    // Stage 2: School Setup
-    createSchool: async (payload: SchoolPayload) => {
-        const { data, error } = await supabase.rpc('create_school_with_classes', {
+    // ── STAGE 2: School ─────────────────────────
+    createSchool: async (payload: SchoolFormPayload) => {
+        return schoolService.createSchoolWithClasses({
             p_school_name: payload.school_name,
             p_school_type: payload.school_type,
-            p_email: payload.email,
-            p_phone: payload.phone,
+            p_email: payload.email || '',
+            p_phone: payload.phone || '',
             p_address: payload.address,
-            p_logo_url: payload.logo_url,
-            p_principal_name: payload.principal_name,
-            p_vice_principal_name: payload.vice_principal_name,
+            p_logo_url: payload.logo_url || '',
+            p_principal_name: payload.principal_name || '',
+            p_vice_principal_name: payload.vice_principal_name || '',
             p_institution_id: payload.institution_id
         });
-        if (error) throw error;
-        return data;
     },
 
-    updateSchoolSettings: async (schoolId: string, payload: Partial<SchoolPayload>) => {
-        const { error } = await supabase
-            .from('schools')
-            .update(payload)
-            .eq('id', schoolId);
-        if (error) throw error;
+    updateSchoolSettings: async (schoolId: string, formData: {
+        school_name?: string;
+        address?: string;
+        principal_name?: string;
+        email?: string;
+        phone?: string;
+    }) => {
+        return schoolService.updateSchoolSettings({
+            p_school_id: schoolId,
+            p_school_name: formData.school_name,
+            p_address: formData.address,
+            p_principal_name: formData.principal_name,
+            p_email: formData.email,
+            p_phone: formData.phone
+        });
+    },
+
+    // ── STAGE 3: Classes ────────────────────────
+    initializeSecondaryClasses: async (schoolId: string) => {
+        return classService.initializeSecondaryClasses(schoolId);
     },
 
     createClass: async (payload: { name: string; school_id: string }) => {
-        const { data, error } = await supabase
-            .from('classes')
-            .insert(payload)
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
+        return classService.createClass(payload.name, payload.school_id);
     },
 
-    deleteClass: async (id: string) => {
-        const { error } = await supabase
-            .from('classes')
-            .delete()
-            .eq('id', id);
-        if (error) throw error;
+    deleteClass: async (classId: string) => {
+        return classService.deleteClass(classId);
     },
 
-    // Stage 3: Academic Structure Initialization
-    initializeSecondaryClasses: async (school_id: string) => {
-        const { data, error } = await supabase.rpc('initialize_secondary_classes', { school_id });
-        if (error) throw error;
-        return data;
-    },
-
-    // Stage 4: Subject System Initialization
-    initializeClassSubjects: async (school_id: string) => {
-        const { data, error } = await supabase.rpc('initialize_class_subjects', { school_id });
-        if (error) throw error;
-        return data;
-    },
-
-    // Stage 5: Teacher Creation
-    createTeacher: async (payload: TeacherPayload) => {
-        const { data, error } = await supabase
-            .from('teachers')
-            .insert(payload)
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    },
-
-    assignTeacherToSubject: async (teacher_id: string, class_subject_id: string) => {
-        const { data, error } = await supabase
-            .from('teacher_subject_assignments')
-            .insert({ teacher_id, class_subject_id })
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    },
-
-    // Stage 6: Student Enrollment
-    enrollStudent: async (payload: StudentPayload) => {
-        const { data, error } = await supabase
-            .from('students')
-            .insert(payload)
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
-    },
-
-    bulkEnrollStudents: async (rows: StudentPayload[]) => {
-        const { error } = await supabase
-            .from('students')
-            .insert(rows);
-        if (error) throw error;
-    },
-
-    enrollStudentSubjects: async (student_id: string) => {
-        const { data, error } = await supabase.rpc('enroll_student_subjects', { student_id });
-        if (error) throw error;
-        return data;
+    // ── STAGE 4: Subjects ───────────────────────
+    initializeClassSubjects: async (schoolId: string) => {
+        return subjectService.initializeClassSubjects(schoolId);
     },
 
     createSubjectInCatalog: async (name: string, category?: string) => {
-        const { data, error } = await supabase
-            .from('subject_catalog')
-            .insert({ name, category })
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
+        return subjectService.createSubjectInCatalog(name, category);
     },
 
-    assignSubjectToClass: async (class_id: string, subject_id: string, school_id: string) => {
-        const { data, error } = await supabase
-            .from('class_subjects')
-            .insert({ class_id, subject_id, school_id })
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
+    assignSubjectToClass: async (classId: string, subjectId: string, schoolId: string) => {
+        return subjectService.assignSubjectToClass(classId, subjectId, schoolId);
     },
 
-    deleteSubjectAssignment: async (id: string) => {
-        const { error } = await supabase
-            .from('class_subjects')
-            .delete()
-            .eq('id', id);
-        if (error) throw error;
+    deleteSubjectAssignment: async (assignmentId: string) => {
+        return subjectService.deleteSubjectAssignment(assignmentId);
     },
 
-
-    // Helpers
-    getClasses: async (school_id: string) => {
-        const { data, error } = await supabase
-            .from('classes')
-            .select('*')
-            .eq('school_id', school_id)
-            .order('name');
-        if (error) throw error;
-        return data;
+    // ── STAGE 5: Teachers ───────────────────────
+    createTeacher: async (payload: TeacherFormPayload) => {
+        return teacherService.createTeacher({
+            p_school_id: payload.school_id,
+            p_name: payload.name,
+            p_email: payload.email,
+            p_phone: payload.phone
+        });
     },
 
-    getClassSubjects: async (school_id: string) => {
-        const { data, error } = await supabase
-            .from('class_subjects')
-            .select(`
-                id,
-                class_id,
-                classes!inner(name, school_id),
-                subject_id,
-                subject_catalog!inner(name)
-            `)
-            .eq('classes.school_id', school_id);
-
-        if (error) throw error;
-        return data;
+    assignTeacherToSubject: async (teacherId: string, classSubjectId: string) => {
+        return teacherService.assignTeacherToSubject(teacherId, classSubjectId);
     },
 
-    getOnboardingStatus: async (institution_id: string) => {
-        // 1. Get the school(s) for this institution
-        const { data: schools } = await supabase
-            .from('schools')
-            .select('id')
-            .eq('institution_id', institution_id);
+    // ── STAGE 6: Students ───────────────────────
+    enrollStudent: async (payload: StudentFormPayload) => {
+        return studentService.enrollStudent({
+            p_first_name: payload.first_name,
+            p_last_name: payload.last_name,
+            p_gender: payload.gender,
+            p_student_number: payload.student_number,
+            p_class_id: payload.class_id,
+            p_school_id: payload.school_id || '',
+            p_date_of_birth: payload.date_of_birth
+        });
+    },
+
+    bulkEnrollStudents: async (rows: Array<{
+        first_name: string;
+        last_name: string;
+        gender: string;
+        student_number: string;
+        class_id: string;
+        date_of_birth?: string;
+    }>) => {
+        return studentService.bulkEnrollStudents(rows);
+    },
+
+    enrollStudentSubjects: async (studentId: string) => {
+        return studentService.enrollStudentSubjects(studentId);
+    },
+
+    // ── QUERY HELPERS (Read-only) ───────────────
+    getClasses: async (schoolId: string) => {
+        return classService.getClasses(schoolId);
+    },
+
+    getClassSubjects: async (schoolId: string) => {
+        return subjectService.getClassSubjects(schoolId);
+    },
+
+    getOnboardingStatus: async (institutionId: string) => {
+        // Query schools for this institution
+        const schools = await queryTable('schools', (builder) =>
+            builder.select('id').eq('institution_id', institutionId)
+        );
 
         const school = schools?.[0];
         if (!school) {
@@ -223,18 +185,18 @@ export const onboardingService = {
 
         const school_id = school.id;
 
-        // 2. Check for other records for this school
-        const [classes, teachers, students] = await Promise.all([
-            supabase.from('classes').select('id', { count: 'exact', head: true }).eq('school_id', school_id),
-            supabase.from('teachers').select('id', { count: 'exact', head: true }).eq('school_id', school_id),
-            supabase.from('students').select('id, classes!inner(school_id)', { count: 'exact', head: true }).eq('classes.school_id', school_id)
+        // Parallel count queries (read-only, permitted)
+        const [classResult, teacherResult, studentResult] = await Promise.all([
+            queryTable('classes', (b) => b.select('id', { count: 'exact', head: true }).eq('school_id', school_id)),
+            queryTable('teachers', (b) => b.select('id', { count: 'exact', head: true }).eq('school_id', school_id)),
+            queryTable('students', (b) => b.select('id, classes!inner(school_id)', { count: 'exact', head: true }).eq('classes.school_id', school_id))
         ]);
 
         return {
             hasSchool: true,
-            hasClasses: (classes.count ?? 0) > 0,
-            hasTeachers: (teachers.count ?? 0) > 0,
-            hasStudents: (students.count ?? 0) > 0,
+            hasClasses: (classResult?.length ?? 0) > 0,
+            hasTeachers: (teacherResult?.length ?? 0) > 0,
+            hasStudents: (studentResult?.length ?? 0) > 0,
             schoolId: school_id
         };
     }

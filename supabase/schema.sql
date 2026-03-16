@@ -86,6 +86,15 @@ CREATE TABLE IF NOT EXISTS class_subjects (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 8.5. Teacher-Subject Assignments
+CREATE TABLE IF NOT EXISTS teacher_subject_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    teacher_id UUID REFERENCES teachers(id) ON DELETE CASCADE,
+    class_subject_id UUID REFERENCES class_subjects(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(teacher_id, class_subject_id)
+);
+
 -- 9. Exams Table
 CREATE TABLE IF NOT EXISTS exams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -298,34 +307,274 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION initialize_secondary_classes(school_id UUID)
+CREATE OR REPLACE FUNCTION initialize_secondary_classes(p_school_id UUID)
 RETURNS VOID AS $$
 BEGIN
     INSERT INTO classes (school_id, name)
     VALUES 
-        (school_id, 'JSS 1'),
-        (school_id, 'JSS 2'),
-        (school_id, 'JSS 3'),
-        (school_id, 'SS 1'),
-        (school_id, 'SS 2'),
-        (school_id, 'SS 3');
+        (p_school_id, 'JSS 1'),
+        (p_school_id, 'JSS 2'),
+        (p_school_id, 'JSS 3'),
+        (p_school_id, 'SS 1'),
+        (p_school_id, 'SS 2'),
+        (p_school_id, 'SS 3');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION initialize_class_subjects(target_school_id UUID)
+CREATE OR REPLACE FUNCTION initialize_class_subjects(p_school_id UUID)
 RETURNS VOID AS $$
 BEGIN
     INSERT INTO class_subjects (class_id, subject_id, school_id)
-    SELECT c.id, s.id, target_school_id
+    SELECT c.id, s.id, p_school_id
     FROM classes c, subject_catalog s
-    WHERE c.school_id = target_school_id;
+    WHERE c.school_id = p_school_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION enroll_student_subjects(target_student_id UUID)
+CREATE OR REPLACE FUNCTION enroll_student_subjects(p_student_id UUID)
 RETURNS VOID AS $$
 BEGIN
     RETURN;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- DETERMINISTIC RPC FUNCTIONS (Eliminating Direct Table Mutations)
+-- ============================================================
+
+-- SIGNAL: CREATE_TEACHER
+CREATE OR REPLACE FUNCTION create_teacher(
+    p_school_id UUID,
+    p_name TEXT,
+    p_email TEXT,
+    p_phone TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_teacher_id UUID;
+BEGIN
+    INSERT INTO teachers (school_id, name, email, phone)
+    VALUES (p_school_id, p_name, p_email, p_phone)
+    RETURNING id INTO new_teacher_id;
+
+    RETURN jsonb_build_object(
+        'id', new_teacher_id,
+        'school_id', p_school_id,
+        'name', p_name,
+        'email', p_email
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: ASSIGN_TEACHER_TO_SUBJECT
+CREATE OR REPLACE FUNCTION assign_teacher_to_subject(
+    p_teacher_id UUID,
+    p_class_subject_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_assignment_id UUID;
+BEGIN
+    INSERT INTO teacher_subject_assignments (teacher_id, class_subject_id)
+    VALUES (p_teacher_id, p_class_subject_id)
+    RETURNING id INTO new_assignment_id;
+
+    RETURN jsonb_build_object(
+        'id', new_assignment_id,
+        'teacher_id', p_teacher_id,
+        'class_subject_id', p_class_subject_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: ENROLL_STUDENT
+CREATE OR REPLACE FUNCTION enroll_student(
+    p_first_name TEXT,
+    p_last_name TEXT,
+    p_gender TEXT,
+    p_student_number TEXT,
+    p_class_id UUID,
+    p_school_id UUID,
+    p_date_of_birth DATE DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_student_id UUID;
+BEGIN
+    INSERT INTO students (first_name, last_name, gender, student_number, class_id, school_id, date_of_birth)
+    VALUES (p_first_name, p_last_name, p_gender, p_student_number, p_class_id, p_school_id, p_date_of_birth)
+    RETURNING id INTO new_student_id;
+
+    RETURN jsonb_build_object(
+        'id', new_student_id,
+        'first_name', p_first_name,
+        'last_name', p_last_name,
+        'class_id', p_class_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: BULK_ENROLL_STUDENTS
+CREATE OR REPLACE FUNCTION bulk_enroll_students(
+    p_students JSONB
+)
+RETURNS JSONB AS $$
+DECLARE
+    student_record JSONB;
+    enrolled_count INT := 0;
+BEGIN
+    FOR student_record IN SELECT * FROM jsonb_array_elements(p_students)
+    LOOP
+        INSERT INTO students (first_name, last_name, gender, student_number, class_id, date_of_birth)
+        VALUES (
+            student_record->>'first_name',
+            student_record->>'last_name',
+            student_record->>'gender',
+            student_record->>'student_number',
+            (student_record->>'class_id')::UUID,
+            CASE WHEN student_record->>'date_of_birth' IS NOT NULL
+                 THEN (student_record->>'date_of_birth')::DATE
+                 ELSE NULL END
+        );
+        enrolled_count := enrolled_count + 1;
+    END LOOP;
+
+    RETURN jsonb_build_object(
+        'enrolled_count', enrolled_count
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: CREATE_CLASS
+CREATE OR REPLACE FUNCTION create_class(
+    p_name TEXT,
+    p_school_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_class_id UUID;
+    created TIMESTAMPTZ;
+BEGIN
+    INSERT INTO classes (name, school_id)
+    VALUES (p_name, p_school_id)
+    RETURNING id, created_at INTO new_class_id, created;
+
+    RETURN jsonb_build_object(
+        'id', new_class_id,
+        'name', p_name,
+        'school_id', p_school_id,
+        'created_at', created
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: DELETE_CLASS
+CREATE OR REPLACE FUNCTION delete_class(
+    p_class_id UUID
+)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM classes WHERE id = p_class_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: CREATE_SUBJECT_IN_CATALOG
+CREATE OR REPLACE FUNCTION create_subject_in_catalog(
+    p_name TEXT,
+    p_category TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_subject_id UUID;
+BEGIN
+    INSERT INTO subject_catalog (name, category)
+    VALUES (p_name, p_category)
+    RETURNING id INTO new_subject_id;
+
+    RETURN jsonb_build_object(
+        'id', new_subject_id,
+        'name', p_name,
+        'category', p_category
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: ASSIGN_SUBJECT_TO_CLASS
+CREATE OR REPLACE FUNCTION assign_subject_to_class(
+    p_class_id UUID,
+    p_subject_id UUID,
+    p_school_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_assignment_id UUID;
+BEGIN
+    INSERT INTO class_subjects (class_id, subject_id, school_id)
+    VALUES (p_class_id, p_subject_id, p_school_id)
+    RETURNING id INTO new_assignment_id;
+
+    RETURN jsonb_build_object(
+        'id', new_assignment_id,
+        'class_id', p_class_id,
+        'subject_id', p_subject_id,
+        'school_id', p_school_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: DELETE_SUBJECT_ASSIGNMENT
+CREATE OR REPLACE FUNCTION delete_subject_assignment(
+    p_assignment_id UUID
+)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM class_subjects WHERE id = p_assignment_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: UPDATE_SCHOOL_SETTINGS
+CREATE OR REPLACE FUNCTION update_school_settings(
+    p_school_id UUID,
+    p_school_name TEXT DEFAULT NULL,
+    p_address TEXT DEFAULT NULL,
+    p_principal_name TEXT DEFAULT NULL,
+    p_email TEXT DEFAULT NULL,
+    p_phone TEXT DEFAULT NULL
+)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE schools SET
+        school_name = COALESCE(p_school_name, school_name),
+        address = COALESCE(p_address, address),
+        principal_name = COALESCE(p_principal_name, principal_name),
+        email = COALESCE(p_email, email),
+        phone = COALESCE(p_phone, phone)
+    WHERE id = p_school_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: CREATE_EXAM
+CREATE OR REPLACE FUNCTION create_exam(
+    p_exam_title TEXT,
+    p_subject_id UUID,
+    p_class_id UUID,
+    p_exam_date DATE,
+    p_marking_scheme JSONB,
+    p_school_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_exam_id UUID;
+BEGIN
+    INSERT INTO exams (exam_title, subject_id, class_id, exam_date, marking_scheme, school_id)
+    VALUES (p_exam_title, p_subject_id, p_class_id, p_exam_date, p_marking_scheme, p_school_id)
+    RETURNING id INTO new_exam_id;
+
+    RETURN jsonb_build_object(
+        'id', new_exam_id,
+        'exam_title', p_exam_title,
+        'school_id', p_school_id
+    );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

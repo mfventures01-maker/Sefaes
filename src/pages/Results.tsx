@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { DownloadCloud, Filter, Loader2, FileSearch, Search } from 'lucide-react';
+import { classService } from '../services/classService';
+import { gradingService } from '../services/gradingService';
 
 const Results: React.FC = () => {
     const { schoolId } = useStore();
@@ -27,13 +28,13 @@ const Results: React.FC = () => {
     const fetchFilters = async () => {
         if (!schoolId) return;
         try {
-            const [classRes, examRes] = await Promise.all([
-                supabase.from('classes').select('id, name').eq('school_id', schoolId).order('created_at'),
-                supabase.from('exams').select('id, exam_title, class_id').order('created_at')
+            const [classesData, examsData] = await Promise.all([
+                classService.getClasses(schoolId),
+                gradingService.loadExams(schoolId)
             ]);
 
-            if (classRes.data) setClasses(classRes.data);
-            if (examRes.data) setExams(examRes.data);
+            if (classesData) setClasses(classesData as any);
+            if (examsData) setExams(examsData as any);
         } catch (err) {
             console.error(err);
         }
@@ -43,31 +44,7 @@ const Results: React.FC = () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            // Need a flat join for easy display:
-            // grading_results -> answer_scripts -> students & exams
-            const { data, error: supabaseError } = await supabase
-                .from('grading_results')
-                .select(`
-          id,
-          score,
-          ai_feedback,
-          answer_scripts (
-            id,
-            students (
-              id,
-              first_name,
-              last_name,
-              class_id
-            ),
-            exams (
-              id,
-              exam_title,
-              class_id
-            )
-          )
-        `);
-
-            if (supabaseError) throw supabaseError;
+            const data = await gradingService.loadAllGradingResults(schoolId);
 
             // PHASE 1 & 2: Normalize data
             const safeData = data ?? [];
