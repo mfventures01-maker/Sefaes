@@ -8,10 +8,11 @@ import { callRPC } from '../lib/rpcClient';
 import { RPC_SIGNALS } from '../lib/rpcSignalRegistry';
 
 export interface TeacherPayload {
-    p_school_id: string;
     p_name: string;
     p_email: string;
-    p_phone?: string;
+    p_phone: string;
+    p_school_id: string;
+    p_class_subject_id?: string | null;
 }
 
 export interface TeacherResponse {

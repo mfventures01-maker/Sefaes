@@ -35,6 +35,7 @@ export interface TeacherFormPayload {
     name: string;
     email: string;
     phone: string;
+    class_subject_id?: string;
 }
 
 export interface StudentFormPayload {
@@ -118,10 +119,11 @@ export const onboardingService = {
     // ── STAGE 5: Teachers ───────────────────────
     createTeacher: async (payload: TeacherFormPayload) => {
         return teacherService.createTeacher({
-            p_school_id: payload.school_id,
             p_name: payload.name,
             p_email: payload.email,
-            p_phone: payload.phone
+            p_phone: payload.phone,
+            p_school_id: payload.school_id,
+            p_class_subject_id: payload.class_subject_id || null
         });
     },
 

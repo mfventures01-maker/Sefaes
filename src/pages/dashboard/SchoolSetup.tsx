@@ -53,9 +53,10 @@ const SchoolSetup: React.FC = () => {
         try {
             await onboardingService.createTeacher({
                 name: teacherName,
-                school_id: schoolId!,
                 email: '', // placeholder for form extension
-                phone: ''  // placeholder for form extension
+                phone: '',  // placeholder for form extension
+                school_id: schoolId!,
+                class_subject_id: undefined // optional
             });
             setSuccess(`Teacher ${teacherName} added!`);
             setTeacherName('');

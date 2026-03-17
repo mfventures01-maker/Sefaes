@@ -223,9 +223,13 @@ export const OnboardingWizard: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const payload = { ...teacherData, school_id: schoolId };
-            const teacher = await onboardingService.createTeacher(payload);
-            await onboardingService.assignTeacherToSubject(teacher.id, selectedSubjectId);
+            await onboardingService.createTeacher({
+                name: teacherData.name,
+                email: teacherData.email,
+                phone: teacherData.phone,
+                school_id: schoolId,
+                class_subject_id: selectedSubjectId || undefined
+            });
             setState('TEACHERS_CREATED');
         } catch (err: any) {
             setError(err.message || 'Failed to create teacher');

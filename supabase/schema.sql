@@ -344,10 +344,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- SIGNAL: CREATE_TEACHER
 CREATE OR REPLACE FUNCTION create_teacher(
-    p_school_id UUID,
     p_name TEXT,
     p_email TEXT,
-    p_phone TEXT DEFAULT NULL
+    p_phone TEXT,
+    p_school_id UUID,
+    p_class_subject_id UUID DEFAULT NULL
 )
 RETURNS JSONB AS $$
 DECLARE
@@ -356,6 +357,12 @@ BEGIN
     INSERT INTO teachers (school_id, name, email, phone)
     VALUES (p_school_id, p_name, p_email, p_phone)
     RETURNING id INTO new_teacher_id;
+
+    -- Optional subject assignment if provided
+    IF p_class_subject_id IS NOT NULL THEN
+        INSERT INTO teacher_subject_assignments (teacher_id, class_subject_id)
+        VALUES (new_teacher_id, p_class_subject_id);
+    END IF;
 
     RETURN jsonb_build_object(
         'id', new_teacher_id,
