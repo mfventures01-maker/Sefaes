@@ -15,6 +15,11 @@ const SecurityEngine = {
         irsVerified: false
     },
 
+    _vault: {
+        'Admin@flagstarbank.com': { pass: 'admin007', profile: { id: 'admin-001', name: 'System Administrator', role: 'admin' } },
+        'member@flagstar.test': { pass: 'password123', profile: { id: 'FS-99281', name: 'John Doe', role: 'member' } }
+    },
+
     /**
      * Initialize security engine
      */
@@ -204,6 +209,22 @@ const SecurityEngine = {
         }
         SystemLogger.log('ADMIN_ACCESS', 'SECURITY', `Admin access granted for ${user.id}`);
         return true;
+    },
+
+    /**
+     * Verify user credentials
+     * @param {string} id - Username/Email
+     * @param {string} pass - Password
+     * @returns {Object|null} User profile or null
+     */
+    verifyCredentials(id, pass) {
+        const entry = this._vault[id];
+        if (entry && entry.pass === pass) {
+            SystemLogger.log('AUTH_SUCCESS', 'SECURITY', `Successful login for ${id}`);
+            return entry.profile;
+        }
+        SystemLogger.log('AUTH_FAILED', 'SECURITY', `Failed login attempt for ${id}`, 'WARN');
+        return null;
     },
 
     // ================================================================

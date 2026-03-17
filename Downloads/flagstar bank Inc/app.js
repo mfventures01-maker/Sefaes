@@ -383,13 +383,15 @@ function attachEventsForState(state) {
                 const id = document.getElementById('login-id').value;
                 const pass = document.getElementById('login-pass').value;
 
-                if (id === 'Admin@flagstarbank.com' && pass === 'admin007') {
-                    AuthState.login({ id: 'admin-001', name: 'System Administrator', role: 'admin' });
-                } else if (id === 'member@flagstar.test' && pass === 'password123') {
-                    AuthState.login({ id: 'FS-99281', name: 'John Doe', role: 'member' });
+                if (id && pass) {
+                    const user = SecurityEngine.verifyCredentials(id, pass);
+                    if (user) {
+                        AuthState.login(user);
+                    } else {
+                        UIEngine.toast('Invalid credentials. Please try again.', 'error');
+                    }
                 } else {
-                    UIEngine.toast('Invalid credentials. Please try again.', 'error');
-                    SystemLogger.log('LOGIN_FAILED', 'SECURITY', `Failed login attempt for: ${id}`, 'WARN');
+                    UIEngine.toast('Email and Password are required.', 'warning');
                 }
             });
         }
