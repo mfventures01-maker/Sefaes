@@ -343,22 +343,31 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================
 
 -- SIGNAL: CREATE_TEACHER
+-- We drop to clear any old signature overloads that cause PostgREST cache misses
+DROP FUNCTION IF EXISTS create_teacher(TEXT, TEXT, TEXT, UUID, UUID);
+DROP FUNCTION IF EXISTS create_teacher(UUID, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION create_teacher(
     p_name TEXT,
     p_email TEXT,
-    p_phone TEXT,
-    p_school_id UUID,
+    p_phone TEXT DEFAULT NULL,
+    p_school_id UUID DEFAULT NULL,
     p_class_subject_id UUID DEFAULT NULL
 )
 RETURNS JSONB AS $$
 DECLARE
     new_teacher_id UUID;
 BEGIN
+    -- Validation: School ID is mandatory for creation context
+    IF p_school_id IS NULL THEN
+        RAISE EXCEPTION 'p_school_id is required';
+    END IF;
+
     INSERT INTO teachers (school_id, name, email, phone)
     VALUES (p_school_id, p_name, p_email, p_phone)
     RETURNING id INTO new_teacher_id;
 
-    -- Optional subject assignment if provided
+    -- Optional subject assignment if provided (resonance protocol)
     IF p_class_subject_id IS NOT NULL THEN
         INSERT INTO teacher_subject_assignments (teacher_id, class_subject_id)
         VALUES (new_teacher_id, p_class_subject_id);
@@ -368,7 +377,8 @@ BEGIN
         'id', new_teacher_id,
         'school_id', p_school_id,
         'name', p_name,
-        'email', p_email
+        'email', p_email,
+        'assignment_created', (p_class_subject_id IS NOT NULL)
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
