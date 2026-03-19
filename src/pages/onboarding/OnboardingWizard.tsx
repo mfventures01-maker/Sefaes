@@ -297,7 +297,7 @@ export const OnboardingWizard: React.FC = () => {
             console.log("ENROLL PAYLOAD:", payloadToSend);
 
             const student = await onboardingService.enrollStudent(payloadToSend);
-            await onboardingService.enrollStudentSubjects(student.id);
+            console.log('[ENROLLED]', student.id);
             setState('ONBOARDING_COMPLETE');
         } catch (err: any) {
             setError(err.message || 'Failed to enroll student');

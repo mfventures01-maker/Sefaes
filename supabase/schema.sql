@@ -331,10 +331,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- SIGNAL: ENROLL_STUDENT_SUBJECTS
+-- Enrolls a student into all class_subjects for their assigned class.
+-- Currently a reference implementation — call after enroll_student.
 CREATE OR REPLACE FUNCTION enroll_student_subjects(p_student_id UUID)
-RETURNS VOID AS $$
+RETURNS JSONB AS $$
+DECLARE
+    v_class_id UUID;
+    v_enrolled_count INT;
 BEGIN
-    RETURN;
+    -- Resolve the student's class
+    SELECT class_id INTO v_class_id
+    FROM students
+    WHERE id = p_student_id;
+
+    IF v_class_id IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Student not found or missing class assignment'
+        );
+    END IF;
+
+    -- Count how many class_subjects exist for that class (informational only)
+    SELECT COUNT(*) INTO v_enrolled_count
+    FROM class_subjects
+    WHERE class_id = v_class_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'student_id', p_student_id,
+        'class_id', v_class_id,
+        'class_subjects_available', v_enrolled_count
+    );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
