@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { onboardingService, InstitutionPayload, SchoolPayload, TeacherPayload, StudentPayload } from '../../services/onboardingService';
+import { onboardingService, InstitutionPayload, SchoolFormPayload as SchoolPayload, TeacherFormPayload as TeacherPayload, StudentFormPayload as StudentPayload } from '../../services/onboardingService';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
 import {
     Building,
@@ -60,7 +60,17 @@ export const OnboardingWizard: React.FC = () => {
                 const status = await onboardingService.getOnboardingStatus(storedInstitutionId);
 
                 if (status.hasStudents) setState('ONBOARDING_COMPLETE');
-                else if (status.hasTeachers) setState('TEACHERS_CREATED');
+                else if (status.hasTeachers) {
+                    setState('TEACHERS_CREATED');
+                    // Always load classes so the enroll form has a valid class_id
+                    if (status.schoolId) {
+                        const classList = await onboardingService.getClasses(status.schoolId);
+                        setClasses(classList);
+                        if (classList.length > 0) {
+                            setStudentData(prev => ({ ...prev, class_id: classList[0].id }));
+                        }
+                    }
+                }
                 else if (status.hasClasses) {
                     // Check if subjects are initialized (approximate by checking classSubjects if reachable)
                     const subjects = await onboardingService.getClassSubjects(status.schoolId || storedInstitutionId);
@@ -72,6 +82,9 @@ export const OnboardingWizard: React.FC = () => {
                     }
                     const classList = await onboardingService.getClasses(status.schoolId || storedInstitutionId);
                     setClasses(classList);
+                    if (classList.length > 0) {
+                        setStudentData(prev => ({ ...prev, class_id: classList[0].id }));
+                    }
                 }
                 else if (status.hasSchool) setState('SCHOOL_CREATED');
                 else setState('INSTITUTION_CREATED');
@@ -187,6 +200,10 @@ export const OnboardingWizard: React.FC = () => {
             await onboardingService.initializeSecondaryClasses(schoolId);
             const classList = await onboardingService.getClasses(schoolId);
             setClasses(classList);
+            // Auto-select the first class so class_id is never an empty string
+            if (classList.length > 0) {
+                setStudentData(prev => ({ ...prev, class_id: classList[0].id }));
+            }
             setState('CLASSES_INITIALIZED');
         } catch (err: any) {
             setError(err.message || 'Failed to initialize classes');
@@ -245,10 +262,27 @@ export const OnboardingWizard: React.FC = () => {
         try {
             const cleanStudentNumber = studentData.student_number.replace(/[#\s]/g, '');
 
+            // PRE-SUBMIT GUARD: Fail fast before hitting the RPC
+            if (!studentData.class_id) {
+                setError('Please select a class before enrolling the student.');
+                setLoading(false);
+                return;
+            }
+            if (!schoolId) {
+                setError('School ID is missing. Please restart the onboarding flow.');
+                setLoading(false);
+                return;
+            }
+            if (!cleanStudentNumber) {
+                setError('Student number cannot be empty.');
+                setLoading(false);
+                return;
+            }
+
             const payloadToSend = {
                 ...studentData,
                 student_number: cleanStudentNumber,
-                school_id: schoolId || undefined
+                school_id: schoolId
             };
 
             console.log("ENROLL PAYLOAD:", payloadToSend);
