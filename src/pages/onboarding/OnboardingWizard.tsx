@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { onboardingService, InstitutionPayload, SchoolFormPayload as SchoolPayload, TeacherFormPayload as TeacherPayload, StudentFormPayload as StudentPayload } from '../../services/onboardingService';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
+
+// Generates a unique student number: STU-YYYYMM-XXXX
+function generateStudentNumber(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const random = Math.floor(1000 + Math.random() * 9000); // 4-digit random
+    return `STU-${year}${month}-${random}`;
+}
 import {
     Building,
     School as SchoolIcon,
@@ -137,7 +146,7 @@ export const OnboardingWizard: React.FC = () => {
         first_name: '',
         last_name: '',
         gender: 'male',
-        student_number: '',
+        student_number: generateStudentNumber(),
         class_id: '',
         date_of_birth: ''
     });
@@ -715,16 +724,27 @@ export const OnboardingWizard: React.FC = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700 ml-1">Student Number</label>
-                                    <div className="relative group">
-                                        <Hash className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                                        <input
-                                            required
-                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                            value={studentData.student_number}
-                                            onChange={e => setStudentData({ ...studentData, student_number: e.target.value })}
-                                            placeholder="STU-00023"
-                                        />
+                                    <div className="relative group flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Hash className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                            <input
+                                                required
+                                                className="w-full bg-slate-100 border-0 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none font-mono tracking-wide"
+                                                value={studentData.student_number}
+                                                onChange={e => setStudentData({ ...studentData, student_number: e.target.value })}
+                                                placeholder="STU-202503-1234"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            title="Regenerate student number"
+                                            onClick={() => setStudentData(prev => ({ ...prev, student_number: generateStudentNumber() }))}
+                                            className="flex-shrink-0 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-2xl px-4 transition-all border border-blue-100 font-bold text-xs tracking-wider"
+                                        >
+                                            ↺ NEW
+                                        </button>
                                     </div>
+                                    <p className="text-xs text-slate-400 ml-1">Auto-generated — you may override it.</p>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-700 ml-1">Class</label>
