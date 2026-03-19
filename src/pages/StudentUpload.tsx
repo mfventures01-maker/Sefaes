@@ -69,7 +69,7 @@ const StudentUpload: React.FC = () => {
                         throw new Error('No valid rows found. Ensure CSV has headers: first_name, last_name, student_number, gender, date_of_birth');
                     }
 
-                    await onboardingService.bulkEnrollStudents(validData);
+                    await onboardingService.bulkEnrollStudents(validData, schoolId!);
 
                     setSuccessCount(validData.length);
                     setFile(null);

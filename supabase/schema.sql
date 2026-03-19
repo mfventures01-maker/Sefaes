@@ -507,7 +507,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- SIGNAL: BULK_ENROLL_STUDENTS
 CREATE OR REPLACE FUNCTION bulk_enroll_students(
-    p_students JSONB
+    p_students JSONB,
+    p_school_id UUID DEFAULT NULL
 )
 RETURNS JSONB AS $$
 DECLARE
@@ -516,14 +517,15 @@ DECLARE
 BEGIN
     FOR student_record IN SELECT * FROM jsonb_array_elements(p_students)
     LOOP
-        INSERT INTO students (first_name, last_name, gender, student_number, class_id, date_of_birth)
+        INSERT INTO students (first_name, last_name, gender, student_number, class_id, school_id, date_of_birth)
         VALUES (
             student_record->>'first_name',
             student_record->>'last_name',
             student_record->>'gender',
             student_record->>'student_number',
             (student_record->>'class_id')::UUID,
-            CASE WHEN student_record->>'date_of_birth' IS NOT NULL
+            p_school_id,
+            CASE WHEN student_record->>'date_of_birth' IS NOT NULL AND student_record->>'date_of_birth' <> ''
                  THEN (student_record->>'date_of_birth')::DATE
                  ELSE NULL END
         );

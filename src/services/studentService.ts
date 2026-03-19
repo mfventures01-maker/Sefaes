@@ -44,17 +44,13 @@ export const studentService = {
      * SIGNAL: BULK_ENROLL_STUDENTS
      * Enrolls multiple students in a single atomic RPC call.
      */
-    bulkEnrollStudents: async (students: Array<{
-        first_name: string;
-        last_name: string;
-        gender: string;
-        student_number: string;
-        class_id: string;
-        date_of_birth?: string;
-    }>): Promise<BulkEnrollResponse> => {
+    bulkEnrollStudents: async (students: any[], schoolId: string): Promise<BulkEnrollResponse> => {
         return callRPC<BulkEnrollResponse>(
             RPC_SIGNALS.BULK_ENROLL_STUDENTS,
-            { p_students: JSON.stringify(students) }
+            {
+                p_students: students,
+                p_school_id: schoolId
+            }
         );
     },
 

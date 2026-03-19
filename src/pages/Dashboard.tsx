@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { BookOpen, GraduationCap, CheckCircle, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
+import { gradingService } from '../services/gradingService';
 
 const Dashboard: React.FC = () => {
   const { schoolId } = useStore();
@@ -31,26 +32,7 @@ const Dashboard: React.FC = () => {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from('grading_results')
-        .select(`
-          id,
-          score,
-          ai_feedback,
-          answer_scripts (
-            id,
-            students (
-              first_name,
-              last_name
-            ),
-            exams (
-              exam_title,
-              class_id
-            )
-          )
-        `);
-
-      if (supabaseError) throw supabaseError;
+      const data = await gradingService.loadAllGradingResults(schoolId);
 
       // PHASE 1 & 2: Normalize data to array
       const safeData = data ?? [];

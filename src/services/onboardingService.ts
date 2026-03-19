@@ -143,15 +143,8 @@ export const onboardingService = {
         });
     },
 
-    bulkEnrollStudents: async (rows: Array<{
-        first_name: string;
-        last_name: string;
-        gender: string;
-        student_number: string;
-        class_id: string;
-        date_of_birth?: string;
-    }>) => {
-        return studentService.bulkEnrollStudents(rows);
+    bulkEnrollStudents: async (rows: any[], schoolId: string) => {
+        return studentService.bulkEnrollStudents(rows, schoolId);
     },
 
     enrollStudentSubjects: async (studentId: string) => {
