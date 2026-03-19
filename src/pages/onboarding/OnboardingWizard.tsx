@@ -243,7 +243,17 @@ export const OnboardingWizard: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const student = await onboardingService.enrollStudent(studentData);
+            const cleanStudentNumber = studentData.student_number.replace(/[#\s]/g, '');
+
+            const payloadToSend = {
+                ...studentData,
+                student_number: cleanStudentNumber,
+                school_id: schoolId || undefined
+            };
+
+            console.log("ENROLL PAYLOAD:", payloadToSend);
+
+            const student = await onboardingService.enrollStudent(payloadToSend);
             await onboardingService.enrollStudentSubjects(student.id);
             setState('ONBOARDING_COMPLETE');
         } catch (err: any) {

@@ -418,6 +418,21 @@ RETURNS JSONB AS $$
 DECLARE
     new_student_id UUID;
 BEGIN
+    -- Defensive Guard: Reject invalid UUIDs before crash
+    IF p_class_id IS NULL OR p_class_id::TEXT = '' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid or missing class_id'
+        );
+    END IF;
+
+    IF p_school_id IS NULL OR p_school_id::TEXT = '' THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid or missing school_id'
+        );
+    END IF;
+
     INSERT INTO students (first_name, last_name, gender, student_number, class_id, school_id, date_of_birth)
     VALUES (p_first_name, p_last_name, p_gender, p_student_number, p_class_id, p_school_id, p_date_of_birth)
     RETURNING id INTO new_student_id;
@@ -427,6 +442,37 @@ BEGIN
         'first_name', p_first_name,
         'last_name', p_last_name,
         'class_id', p_class_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- DEBUG MIRROR FUNCTION
+CREATE OR REPLACE FUNCTION debug_enroll_student(
+    p_first_name TEXT,
+    p_last_name TEXT,
+    p_gender TEXT,
+    p_student_number TEXT,
+    p_class_id UUID,
+    p_school_id UUID,
+    p_date_of_birth DATE DEFAULT NULL
+)
+RETURNS JSONB AS $$
+BEGIN
+    RAISE LOG 'DEBUG_ENROLL: first_name=%, last_name=%, gender=%, student_number=%, class_id=%, school_id=%, dob=%', 
+        p_first_name, p_last_name, p_gender, p_student_number, p_class_id, p_school_id, p_date_of_birth;
+
+    RETURN jsonb_build_object(
+        'success', false,
+        'message', 'Debug mirror intercept. Check logs.',
+        'payload', jsonb_build_object(
+            'p_first_name', p_first_name,
+            'p_last_name', p_last_name,
+            'p_gender', p_gender,
+            'p_student_number', p_student_number,
+            'p_class_id', p_class_id,
+            'p_school_id', p_school_id,
+            'p_date_of_birth', p_date_of_birth
+        )
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

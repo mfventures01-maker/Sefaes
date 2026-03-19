@@ -131,7 +131,6 @@ export const onboardingService = {
         return teacherService.assignTeacherToSubject(teacherId, classSubjectId);
     },
 
-    // ── STAGE 6: Students ───────────────────────
     enrollStudent: async (payload: StudentFormPayload) => {
         return studentService.enrollStudent({
             p_first_name: payload.first_name,
@@ -139,8 +138,8 @@ export const onboardingService = {
             p_gender: payload.gender,
             p_student_number: payload.student_number,
             p_class_id: payload.class_id,
-            p_school_id: payload.school_id || '',
-            p_date_of_birth: payload.date_of_birth
+            p_school_id: payload.school_id as string,
+            p_date_of_birth: payload.date_of_birth || undefined
         });
     },
 
