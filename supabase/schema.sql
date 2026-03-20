@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS grading_results (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 13. AI Usage Logs
+-- 14. AI Usage Logs
 CREATE TABLE IF NOT EXISTS ai_usage_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     school_id UUID REFERENCES schools(id),
@@ -161,7 +161,81 @@ CREATE TABLE IF NOT EXISTS ai_usage_logs (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 14. Functions & Triggers
+-- ──────────────────────────────────────────────
+-- CBT MODULE: DETERMINISTIC EXAM ENGINE
+-- ──────────────────────────────────────────────
+
+-- 17. CBT Exams (Dynamic Instruction Layer)
+CREATE TABLE IF NOT EXISTS cbt_exams (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+    class_id UUID REFERENCES classes(id) ON DELETE CASCADE,
+    subject_id UUID REFERENCES subject_catalog(id),
+    title TEXT NOT NULL,
+    description TEXT,
+    duration_minutes INT NOT NULL DEFAULT 60,
+    passing_score INT DEFAULT 50,
+    status TEXT DEFAULT 'draft', -- draft, published, active, completed, archived
+    is_randomized BOOLEAN DEFAULT TRUE,
+    created_by UUID REFERENCES teachers(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 18. CBT Questions
+CREATE TABLE IF NOT EXISTS cbt_questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_id UUID REFERENCES cbt_exams(id) ON DELETE CASCADE,
+    question_text TEXT NOT NULL,
+    image_url TEXT,
+    marks INT DEFAULT 1,
+    order_index INT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 19. CBT Options (Multiple Choice)
+CREATE TABLE IF NOT EXISTS cbt_options (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES cbt_questions(id) ON DELETE CASCADE,
+    option_text TEXT NOT NULL,
+    is_correct BOOLEAN DEFAULT FALSE,
+    order_index INT
+);
+
+-- 20. CBT Attempts (Student Session Mirror)
+CREATE TABLE IF NOT EXISTS cbt_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_id UUID REFERENCES cbt_exams(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    start_time TIMESTAMPTZ DEFAULT NOW(),
+    end_time TIMESTAMPTZ,
+    status TEXT DEFAULT 'in_progress', -- in_progress, submitted, timeout
+    score INT,
+    UNIQUE(exam_id, student_id)
+);
+
+-- 21. CBT Answers (Atomic Responses)
+CREATE TABLE IF NOT EXISTS cbt_answers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    attempt_id UUID REFERENCES cbt_attempts(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES cbt_questions(id) ON DELETE CASCADE,
+    selected_option_id UUID REFERENCES cbt_options(id) ON DELETE CASCADE,
+    is_correct BOOLEAN,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(attempt_id, question_id)
+);
+
+-- 22. CBT Results Aggregate
+CREATE TABLE IF NOT EXISTS cbt_results_summary (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    attempt_id UUID REFERENCES cbt_attempts(id) ON DELETE CASCADE,
+    total_questions INT,
+    correct_answers INT,
+    final_percentage NUMERIC,
+    rank_in_class INT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 23. Functions & Triggers
 
 -- SIGNAL: CREATE_ANSWER_SCRIPT
 CREATE OR REPLACE FUNCTION create_answer_script(
@@ -791,3 +865,152 @@ SELECT
     MIN(created_at) as oldest_job
 FROM grading_jobs
 GROUP BY status;
+
+-- ──────────────────────────────────────────────
+-- CBT RPC MODULE: THE DETERMINISTIC BRAIN
+-- ──────────────────────────────────────────────
+
+-- SIGNAL: CREATE_CBT_EXAM
+CREATE OR REPLACE FUNCTION create_cbt_exam(
+    p_school_id UUID,
+    p_class_id UUID,
+    p_subject_id UUID,
+    p_title TEXT,
+    p_duration_minutes INT DEFAULT 60
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_exam_id UUID;
+BEGIN
+    INSERT INTO cbt_exams (school_id, class_id, subject_id, title, duration_minutes, status)
+    VALUES (p_school_id, p_class_id, p_subject_id, p_title, p_duration_minutes, 'draft')
+    RETURNING id INTO new_exam_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'exam_id', new_exam_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: ADD_CBT_QUESTION
+CREATE OR REPLACE FUNCTION add_cbt_question(
+    p_exam_id UUID,
+    p_question_text TEXT,
+    p_marks INT DEFAULT 1,
+    p_options JSONB -- Array of {text: string, is_correct: boolean}
+)
+RETURNS JSONB AS $$
+DECLARE
+    new_q_id UUID;
+    opt_record RECORD;
+BEGIN
+    -- 1. Insert Question
+    INSERT INTO cbt_questions (exam_id, question_text, marks)
+    VALUES (p_exam_id, p_question_text, p_marks)
+    RETURNING id INTO new_q_id;
+
+    -- 2. Insert Options
+    FOR opt_record IN SELECT * FROM jsonb_to_recordset(p_options) AS x(text TEXT, is_correct BOOLEAN)
+    LOOP
+        INSERT INTO cbt_options (question_id, option_text, is_correct)
+        VALUES (new_q_id, opt_record.text, opt_record.is_correct);
+    END LOOP;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'question_id', new_q_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: START_CBT_EXAM
+CREATE OR REPLACE FUNCTION start_cbt_exam(
+    p_exam_id UUID,
+    p_student_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_attempt_id UUID;
+    v_duration INT;
+BEGIN
+    -- Check if exam is published
+    SELECT duration_minutes INTO v_duration FROM cbt_exams WHERE id = p_exam_id AND status = 'published';
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Exam not published or available');
+    END IF;
+
+    -- Check for existing attempt
+    SELECT id INTO v_attempt_id FROM cbt_attempts WHERE exam_id = p_exam_id AND student_id = p_student_id;
+    
+    IF v_attempt_id IS NOT NULL THEN
+        RETURN jsonb_build_object('success', true, 'attempt_id', v_attempt_id, 'is_resume', true);
+    END IF;
+
+    INSERT INTO cbt_attempts (exam_id, student_id, start_time, status)
+    VALUES (p_exam_id, p_student_id, NOW(), 'in_progress')
+    RETURNING id INTO v_attempt_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'attempt_id', v_attempt_id,
+        'is_resume', false
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: SUBMIT_CBT_ANSWER
+CREATE OR REPLACE FUNCTION submit_cbt_answer(
+    p_attempt_id UUID,
+    p_question_id UUID,
+    p_option_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_is_correct BOOLEAN;
+BEGIN
+    -- 1. Verify correct option
+    SELECT is_correct INTO v_is_correct FROM cbt_options WHERE id = p_option_id AND question_id = p_question_id;
+
+    -- 2. Upsert answer
+    INSERT INTO cbt_answers (attempt_id, question_id, selected_option_id, is_correct)
+    VALUES (p_attempt_id, p_question_id, p_option_id, v_is_correct)
+    ON CONFLICT (attempt_id, question_id) 
+    DO UPDATE SET selected_option_id = EXCLUDED.selected_option_id, is_correct = EXCLUDED.is_correct;
+
+    RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- SIGNAL: SUBMIT_CBT_EXAM
+CREATE OR REPLACE FUNCTION submit_cbt_exam(p_attempt_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+    v_earned_marks INT := 0;
+BEGIN
+    -- 1. Calculate Score
+    SELECT COALESCE(SUM(q.marks), 0) INTO v_earned_marks
+    FROM cbt_answers a
+    JOIN cbt_questions q ON a.question_id = q.id
+    WHERE a.attempt_id = p_attempt_id AND a.is_correct = TRUE;
+
+    -- 2. Close Attempt
+    UPDATE cbt_attempts SET 
+        status = 'submitted', 
+        end_time = NOW(),
+        score = v_earned_marks
+    WHERE id = p_attempt_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'score', v_earned_marks
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- CBT Pipeline Health View
+CREATE OR REPLACE VIEW cbt_pipeline_health AS
+SELECT 
+    (SELECT count(*) FROM cbt_exams) as total_exams,
+    (SELECT count(*) FROM cbt_attempts WHERE status = 'in_progress') as active_sessions,
+    (SELECT count(*) FROM cbt_attempts WHERE status = 'submitted') as completed_exams;
