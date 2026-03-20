@@ -18,10 +18,17 @@ export interface StudentPayload {
 }
 
 export interface StudentResponse {
-    id: string;
-    first_name: string;
-    last_name: string;
-    class_id: string;
+    success: boolean;
+    student_id: string;
+    student_number: string;
+    error?: string;
+}
+
+export interface StudentSubjectsResponse {
+    success: boolean;
+    student_id: string;
+    assigned_count: number;
+    error?: string;
 }
 
 export interface BulkEnrollResponse {
@@ -58,8 +65,8 @@ export const studentService = {
      * SIGNAL: ENROLL_STUDENT_SUBJECTS
      * Enrolls a student into all subjects for their class.
      */
-    enrollStudentSubjects: async (studentId: string): Promise<void> => {
-        return callRPC<void>(
+    enrollStudentSubjects: async (studentId: string): Promise<StudentSubjectsResponse> => {
+        return callRPC<StudentSubjectsResponse>(
             RPC_SIGNALS.ENROLL_STUDENT_SUBJECTS,
             { p_student_id: studentId }
         );

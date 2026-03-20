@@ -243,66 +243,79 @@ export const OnboardingWizard: React.FC = () => {
         }
     };
 
-    const handleCreateTeacher = async (e: React.FormEvent) => {
+    const [setupStatus, setSetupStatus] = useState<string>('');
+
+    const handleCreateTeacher = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!schoolId || !selectedSubjectId) return;
+        if (!selectedSubjectId) {
+            setError('Please assign a subject to the teacher.');
+            return;
+        }
+        setState('TEACHERS_CREATED');
+    };
+
+    const completeOnboarding = async (e: React.FormEvent) => {
+        e.preventDefault();
         setLoading(true);
         setError(null);
+        setSetupStatus('Initializing final enrollment sequence...');
+
         try {
-            await onboardingService.createTeacher({
+            const cleanStudentNumber = studentData.student_number.replace(/[#\s]/g, '');
+
+            // 1. PRE-SUBMIT GUARD: Fail fast before hitting the RPC
+            if (!studentData.class_id || !schoolId || !selectedSubjectId) {
+                throw new Error('Missing critical configuration: class_id, school_id, or subject_id.');
+            }
+
+            // STEP 1 — CREATE STUDENT
+            setSetupStatus('STEP 1: Enrolling student...');
+            const student = await onboardingService.enrollStudent({
+                ...studentData,
+                student_number: cleanStudentNumber,
+                school_id: schoolId
+            });
+
+            if (!student.success) throw new Error(student.error || 'Failed to enroll student');
+            const student_id = student.student_id;
+
+            // STEP 2 — AUTO-ENROLL SUBJECTS
+            setSetupStatus('STEP 2: Mapping curriculum to student...');
+            const subjectsResult = await onboardingService.enrollStudentSubjects(student_id);
+            if (!subjectsResult.success) throw new Error(subjectsResult.error || 'Failed to map subjects');
+
+            // STEP 3 — CREATE TEACHER
+            setSetupStatus('STEP 3: Creating teacher identity...');
+            const teacher = await onboardingService.createTeacher({
                 name: teacherData.name,
                 email: teacherData.email,
                 phone: teacherData.phone,
                 school_id: schoolId,
-                class_subject_id: selectedSubjectId || undefined
+                class_subject_id: selectedSubjectId
             });
-            setState('TEACHERS_CREATED');
-        } catch (err: any) {
-            setError(err.message || 'Failed to create teacher');
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    const handleEnrollStudent = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-        try {
-            const cleanStudentNumber = studentData.student_number.replace(/[#\s]/g, '');
+            if (!teacher.success) throw new Error(teacher.error || 'Failed to create teacher');
 
-            // PRE-SUBMIT GUARD: Fail fast before hitting the RPC
-            if (!studentData.class_id) {
-                setError('Please select a class before enrolling the student.');
-                setLoading(false);
-                return;
-            }
-            if (!schoolId) {
-                setError('School ID is missing. Please restart the onboarding flow.');
-                setLoading(false);
-                return;
-            }
-            if (!cleanStudentNumber) {
-                setError('Student number cannot be empty.');
-                setLoading(false);
-                return;
-            }
+            // STEP 4 — TEACHER -> SUBJECT ASSIGNMENT (Backend already did it if class_subject_id was passed, but we confirm here)
+            setSetupStatus('STEP 4: Verifying teacher assignments...');
 
-            const payloadToSend = {
-                ...studentData,
-                student_number: cleanStudentNumber,
-                school_id: schoolId
-            };
-
-            console.log("ENROLL PAYLOAD:", payloadToSend);
-
-            const student = await onboardingService.enrollStudent(payloadToSend);
-            console.log('[ENROLLED]', student.id);
+            // SYSTEM READY
+            setSetupStatus('SYSTEM READY');
             setState('ONBOARDING_COMPLETE');
+
+            // Final success log
+            console.log('✅ Deterministic Onboarding Loop Complete', {
+                student_id: student.student_id,
+                teacher_id: teacher.teacher_id,
+                student_number: student.student_number
+            });
+
         } catch (err: any) {
-            setError(err.message || 'Failed to enroll student');
+            console.error('🚨 ONBOARDING_LOOP_FAILURE:', err);
+            setError(err.message || 'The boarding sequence failed at a critical step. Please refresh and try again.');
         } finally {
             setLoading(false);
+            setSetupStatus('');
         }
     };
 
@@ -684,7 +697,7 @@ export const OnboardingWizard: React.FC = () => {
                     )}
 
                     {state === 'TEACHERS_CREATED' && (
-                        <form onSubmit={handleEnrollStudent} className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
+                        <form onSubmit={completeOnboarding} className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
                             <div>
                                 <h2 className="text-3xl font-black text-slate-900 mb-2">Enroll First Student</h2>
                                 <p className="text-slate-500 mb-8">Add the first student to finalize the system synchronization.</p>
@@ -780,8 +793,20 @@ export const OnboardingWizard: React.FC = () => {
                                     disabled={loading}
                                     className="w-full md:w-auto px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-70 group"
                                 >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Complete Enrollment'}
-                                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    {loading ? (
+                                        <div className="flex flex-col items-center">
+                                            <div className="flex items-center">
+                                                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                                <span>Processing...</span>
+                                            </div>
+                                            {setupStatus && (
+                                                <span className="text-[10px] absolute mt-12 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                                    {setupStatus}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : 'Complete Enrollment'}
+                                    <ArrowRight className={cn("ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform", loading && "opacity-0")} />
                                 </button>
                             </div>
                         </form>

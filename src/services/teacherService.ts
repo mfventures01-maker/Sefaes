@@ -16,10 +16,10 @@ export interface TeacherPayload {
 }
 
 export interface TeacherResponse {
-    id: string;
-    school_id: string;
-    name: string;
-    email: string;
+    success: boolean;
+    teacher_id: string;
+    assignment_created: boolean;
+    error?: string;
 }
 
 export interface TeacherAssignmentResponse {

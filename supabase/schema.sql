@@ -95,6 +95,15 @@ CREATE TABLE IF NOT EXISTS teacher_subject_assignments (
     UNIQUE(teacher_id, class_subject_id)
 );
 
+-- 8.7. Student-Subject Assignments
+CREATE TABLE IF NOT EXISTS student_subjects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    class_subject_id UUID REFERENCES class_subjects(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, class_subject_id)
+);
+
 -- 9. Exams Table
 CREATE TABLE IF NOT EXISTS exams (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -333,14 +342,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- SIGNAL: ENROLL_STUDENT_SUBJECTS
 -- Enrolls a student into all class_subjects for their assigned class.
--- Currently a reference implementation — call after enroll_student.
 CREATE OR REPLACE FUNCTION enroll_student_subjects(p_student_id UUID)
 RETURNS JSONB AS $$
 DECLARE
     v_class_id UUID;
     v_enrolled_count INT;
 BEGIN
-    -- Resolve the student's class
+    -- 1. Validate Input
+    IF p_student_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'p_student_id is required');
+    END IF;
+
+    -- 2. Resolve the student's class
     SELECT class_id INTO v_class_id
     FROM students
     WHERE id = p_student_id;
@@ -348,20 +361,23 @@ BEGIN
     IF v_class_id IS NULL THEN
         RETURN jsonb_build_object(
             'success', false,
-            'error', 'Student not found or missing class assignment'
+            'error', 'Student not found or missing class mapping'
         );
     END IF;
 
-    -- Count how many class_subjects exist for that class (informational only)
-    SELECT COUNT(*) INTO v_enrolled_count
-    FROM class_subjects
-    WHERE class_id = v_class_id;
+    -- 3. Perform Assignment (Idempotent)
+    INSERT INTO student_subjects (student_id, class_subject_id)
+    SELECT p_student_id, cs.id
+    FROM class_subjects cs
+    WHERE cs.class_id = v_class_id
+    ON CONFLICT (student_id, class_subject_id) DO NOTHING;
+
+    GET DIAGNOSTICS v_enrolled_count = ROW_COUNT;
 
     RETURN jsonb_build_object(
         'success', true,
         'student_id', p_student_id,
-        'class_id', v_class_id,
-        'class_subjects_available', v_enrolled_count
+        'assigned_count', v_enrolled_count
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -388,24 +404,29 @@ DECLARE
 BEGIN
     -- Validation: School ID is mandatory for creation context
     IF p_school_id IS NULL THEN
-        RAISE EXCEPTION 'p_school_id is required';
+        RETURN jsonb_build_object('success', false, 'error', 'p_school_id is required');
     END IF;
 
     INSERT INTO teachers (school_id, name, email, phone)
     VALUES (p_school_id, p_name, p_email, p_phone)
+    ON CONFLICT (email) DO NOTHING
     RETURNING id INTO new_teacher_id;
+
+    IF new_teacher_id IS NULL THEN
+        -- Attempt to resolve existing teacher if email exists
+        SELECT id INTO new_teacher_id FROM teachers WHERE email = p_email;
+    END IF;
 
     -- Optional subject assignment if provided (resonance protocol)
     IF p_class_subject_id IS NOT NULL THEN
         INSERT INTO teacher_subject_assignments (teacher_id, class_subject_id)
-        VALUES (new_teacher_id, p_class_subject_id);
+        VALUES (new_teacher_id, p_class_subject_id)
+        ON CONFLICT (teacher_id, class_subject_id) DO NOTHING;
     END IF;
 
     RETURN jsonb_build_object(
-        'id', new_teacher_id,
-        'school_id', p_school_id,
-        'name', p_name,
-        'email', p_email,
+        'success', true,
+        'teacher_id', new_teacher_id,
         'assignment_created', (p_class_subject_id IS NOT NULL)
     );
 END;
@@ -466,10 +487,9 @@ BEGIN
     RETURNING id INTO new_student_id;
 
     RETURN jsonb_build_object(
-        'id', new_student_id,
-        'first_name', p_first_name,
-        'last_name', p_last_name,
-        'class_id', p_class_id
+        'success', true,
+        'student_id', new_student_id,
+        'student_number', p_student_number
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
