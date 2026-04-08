@@ -1,0 +1,99 @@
+﻿
+> de-facto-lounge-and-bar@0.0.0 build
+> vite build
+
+[36mvite v6.4.1 [32mbuilding for production...[36m[39m
+transforming...
+npm : 
+At line:1 char:1
++ npm run build 2>&1 | 
+Out-File -FilePath 
+"build-output-new.txt" 
+-Encod ...
++ ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (:Stri  
+  ng) [], RemoteException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+A PostCSS plugin did not 
+pass the `from` option to 
+`postcss.parse`. This may 
+cause imported assets to be 
+incorrectly transformed. If 
+you've recently added a 
+PostCSS plugin that raised 
+this warning, please 
+contact the package author 
+to fix the issue.
+[32mΓ£ô[39m 47 modules transformed.
+[31mΓ£ù[39m Build failed 
+in 7.24s
+[31merror during build:
+[31m[vite:esbuild] 
+Transform failed with 1 
+error:
+C:/Users/Administrator/Downl
+oads/de-facto-lounge-and-bar
+/data/staff.ts:51:46: 
+ERROR: Expected "}" but 
+found "re"[31m
+file: [36mC:/Users/Administ
+rator/Downloads/de-facto-lou
+nge-and-bar/data/staff.ts:51
+:46[31m
+[33m
+[33mExpected "}" but found 
+"re"[33m
+49 |          name: 
+'Blessing Okoro',
+50 |          role: 'VIP 
+Concierge',
+51 |          trait: 
+'Anticipates needs before 
+they're spoken.',
+   |                        
+                        ^
+52 |      image: '/assets/st
+aff/blessing-okoro.jpg'
+53 |    },
+[31m
+    at failureErrorWithLog (
+C:\Users\Administrator\Downl
+oads\de-facto-lounge-and-bar
+\node_modules\esbuild\lib\ma
+in.js:1467:15)
+    at C:\Users\Administrato
+r\Downloads\de-facto-lounge-
+and-bar\node_modules\esbuild
+\lib\main.js:736:50
+    at responseCallbacks.<co
+mputed> (C:\Users\Administra
+tor\Downloads\de-facto-loung
+e-and-bar\node_modules\esbui
+ld\lib\main.js:603:9)
+    at handleIncomingPacket 
+(C:\Users\Administrator\Down
+loads\de-facto-lounge-and-ba
+r\node_modules\esbuild\lib\m
+ain.js:658:12)
+    at 
+Socket.readFromStdout (C:\Us
+ers\Administrator\Downloads\
+de-facto-lounge-and-bar\node
+_modules\esbuild\lib\main.js
+:581:7)
+    at Socket.emit 
+(node:events:524:28)
+    at addChunk (node:intern
+al/streams/readable:561:12)
+    at readableAddChunkPushB
+yteMode (node:internal/strea
+ms/readable:512:3)
+    at Readable.push (node:i
+nternal/streams/readable:392
+:5)
+    at Pipe.onStreamRead (no
+de:internal/stream_base_comm
+ons:191:23)[39m

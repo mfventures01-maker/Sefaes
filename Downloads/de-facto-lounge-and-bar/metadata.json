@@ -1,0 +1,7 @@
+{
+  "name": "De Facto Lounge and Bar",
+  "description": "Experience premium nightlife at De Facto Lounge and Bar. Exquisite cocktails, premium spirits, and gourmet dining in the heart of Asaba.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -1,0 +1,12 @@
+# Netlify Configuration for De Facto Lounge & Bar
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback for client-side routing
+# Ensures /q/:tableId routes work on direct access and reload
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
