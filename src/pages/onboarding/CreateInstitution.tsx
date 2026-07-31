@@ -46,6 +46,7 @@ export const CreateInstitution: React.FC = () => {
     const [state, setState] = useState<OnboardingState>('INIT');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Sync state with backend on mount
     useEffect(() => {
@@ -143,7 +144,12 @@ export const CreateInstitution: React.FC = () => {
     // Actions
     const handleCreateInstitution = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+
+        // Prevent double execution if already submitting
+        if (isSubmitting) return;
+
+        // Lock the UI immediately
+        setIsSubmitting(true);
         setError(null);
         try {
             const result = await onboardingService.createInstitutionAccount(institutionData);
@@ -154,13 +160,14 @@ export const CreateInstitution: React.FC = () => {
         } catch (err: any) {
             setError(err.message || 'Failed to create institution');
         } finally {
-            setLoading(false);
+            // IMPORTANT: Unlock the UI once the request finishes (success or failure)
+            setIsSubmitting(false);
         }
     };
 
     const handleCreateSchool = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setIsSubmitting(true);
         setError(null);
         try {
             const school = await onboardingService.createSchool(schoolData);
@@ -170,13 +177,13 @@ export const CreateInstitution: React.FC = () => {
         } catch (err: any) {
             setError(err.message || 'Failed to create school');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
     const handleInitializeClasses = async () => {
         if (!schoolId) return;
-        setLoading(true);
+        setIsSubmitting(true);
         setError(null);
         try {
             await onboardingService.initializeSecondaryClasses(schoolId);
@@ -186,13 +193,13 @@ export const CreateInstitution: React.FC = () => {
         } catch (err: any) {
             setError(err.message || 'Failed to initialize classes');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
     const handleInitializeSubjects = async () => {
         if (!schoolId) return;
-        setLoading(true);
+        setIsSubmitting(true);
         setError(null);
         try {
             await onboardingService.initializeClassSubjects(schoolId);
@@ -208,14 +215,14 @@ export const CreateInstitution: React.FC = () => {
                 setError(err.message || 'Failed to initialize subjects');
             }
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
     const handleCreateTeacher = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!schoolId || !selectedSubjectId) return;
-        setLoading(true);
+        setIsSubmitting(true);
         setError(null);
         try {
             await onboardingService.createTeacher({
@@ -229,13 +236,13 @@ export const CreateInstitution: React.FC = () => {
         } catch (err: any) {
             setError(err.message || 'Failed to create teacher');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
     const handleEnrollStudent = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setIsSubmitting(true);
         setError(null);
         try {
             const student = await onboardingService.enrollStudent(studentData);
@@ -244,7 +251,7 @@ export const CreateInstitution: React.FC = () => {
         } catch (err: any) {
             setError(err.message || 'Failed to enroll student');
         } finally {
-            setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -412,11 +419,20 @@ export const CreateInstitution: React.FC = () => {
                             <div className="pt-6">
                                 <button
                                     type="submit"
-                                    disabled={loading}
-                                    className="w-full md:w-auto px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-70 group"
+                                    disabled={isSubmitting}
+                                    className="w-full md:w-auto px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed group"
                                 >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Create Account'}
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                            Creating Institution...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Create Account
                                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -443,33 +459,33 @@ export const CreateInstitution: React.FC = () => {
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-slate-700 ml-1">School Type</label>
                                         <select
-                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                        className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                                             value={schoolData.school_type}
                                             onChange={e => setSchoolData({ ...schoolData, school_type: e.target.value as any })}
                                         >
                                             <option value="Secondary">Secondary</option>
                                             <option value="Primary">Primary</option>
                                         </select>
-                                    </div>
-                                    <div className="space-y-2">
+                                </div>
+                                <div className="space-y-2">
                                         <label className="text-sm font-bold text-slate-700 ml-1">Address</label>
                                         <input
-                                            required
-                                            className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                        required
+                                        className="w-full bg-slate-50 border-0 rounded-2xl py-3.5 px-4 text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                                             value={schoolData.address}
                                             onChange={e => setSchoolData({ ...schoolData, address: e.target.value })}
                                             placeholder="123 Education Way"
                                         />
                                     </div>
                                 </div>
-                            </div>
+                                </div>
                             <div className="pt-6">
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={isSubmitting || loading}
                                     className="w-full md:w-auto px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-70 group"
                                 >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Continue'}
+                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Continue'}
                                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
@@ -480,37 +496,37 @@ export const CreateInstitution: React.FC = () => {
                         <div className="text-center py-12 animate-in fade-in slide-in-from-right-8 duration-500">
                             <div className="w-20 h-20 bg-blue-100 rounded-[2rem] flex items-center justify-center text-blue-600 mx-auto mb-8">
                                 <Layout className="w-10 h-10" />
-                            </div>
+                </div>
                             <h2 className="text-3xl font-black text-slate-900 mb-4">Initialize Academic Ladder</h2>
                             <p className="text-slate-600 mb-10 max-w-md mx-auto">
                                 The system will automatically generate the Nigerian secondary class ladder (JSS1 - SS3) for your school.
                             </p>
                             <button
                                 onClick={handleInitializeClasses}
-                                disabled={loading}
+                                disabled={isSubmitting || loading}
                                 className="px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-70 mx-auto group"
                             >
-                                {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Initialize Classes'}
+                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Initialize Classes'}
                                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                             </button>
-                        </div>
+            </div>
                     )}
 
                     {state === 'CLASSES_INITIALIZED' && (
                         <div className="text-center py-12 animate-in fade-in slide-in-from-right-8 duration-500">
                             <div className="w-20 h-20 bg-indigo-100 rounded-[2rem] flex items-center justify-center text-indigo-600 mx-auto mb-8">
                                 <BookOpen className="w-10 h-10" />
-                            </div>
+        </div>
                             <h2 className="text-3xl font-black text-slate-900 mb-4">Populate Subject System</h2>
                             <p className="text-slate-600 mb-10 max-w-md mx-auto">
                                 We will map over 150+ subjects from the national catalog to your new classes automatically.
                             </p>
                             <button
                                 onClick={handleInitializeSubjects}
-                                disabled={loading}
+                                disabled={isSubmitting || loading}
                                 className="px-12 bg-indigo-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-70 mx-auto group"
                             >
-                                {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Initialize Subjects'}
+                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Initialize Subjects'}
                                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                             </button>
                         </div>
@@ -574,10 +590,10 @@ export const CreateInstitution: React.FC = () => {
                             <div className="pt-6">
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={isSubmitting || loading}
                                     className="w-full md:w-auto px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-70 group"
                                 >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Create Teacher'}
+                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Create Teacher'}
                                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
@@ -668,10 +684,10 @@ export const CreateInstitution: React.FC = () => {
                             <div className="pt-6">
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={isSubmitting || loading}
                                     className="w-full md:w-auto px-12 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 disabled:opacity-70 group"
                                 >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Complete Enrollment'}
+                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : 'Complete Enrollment'}
                                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
@@ -684,4 +700,5 @@ export const CreateInstitution: React.FC = () => {
 };
 
 export default CreateInstitution;
+
 
