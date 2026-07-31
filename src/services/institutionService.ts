@@ -13,6 +13,7 @@ export interface InstitutionPayload {
     country: string;
     state: string;
     admin_email: string;
+    password?: string;
 }
 
 export interface InstitutionResponse {
@@ -25,7 +26,17 @@ export const institutionService = {
      * SIGNAL: CREATE_INSTITUTION_ACCOUNT
      * Atomically creates institution, principal, and profile records.
      */
-    createInstitutionAccount: async (payload: InstitutionPayload): Promise<InstitutionResponse> => {
+    createInstitutionAccount: async (form: InstitutionPayload): Promise<InstitutionResponse> => {
+        const payload = {
+            _institution_name: form.institution_name,
+            _admin_email: form.admin_email,
+            _admin_password: form.password || '', // REQUIRED: Pass the raw password string
+            _institution_type: form.institution_type,
+            _country: form.country
+        };
+
+        console.log("[RPC TRACE] create_institution_account payload:", payload);
+
         return callRPC<InstitutionResponse>(
             RPC_SIGNALS.CREATE_INSTITUTION_ACCOUNT,
             payload

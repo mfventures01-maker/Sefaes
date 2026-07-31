@@ -4,7 +4,27 @@
 // All mutations MUST pass through this function
 // ──────────────────────────────────────────────
 
-import { supabase } from './supabase';
+import { RPC_SIGNALS } from './rpcSignalRegistry';
+import { checkMutationAllowed } from '../engine/mutationPolicy';
+
+let supabaseClient: any = null;
+let mockRpcResult: any = null;
+let mockQueryResult: any = null;
+
+export function setMockRpcResult(result: any) {
+    mockRpcResult = result;
+}
+
+export function setMockQueryResult(result: any) {
+    mockQueryResult = result;
+}
+
+/**
+ * Initializes the RPC client with the Supabase instance to break circular dependencies.
+ */
+export function initializeRpcClient(client: any) {
+    supabaseClient = client;
+}
 
 /**
  * Executes a Supabase RPC call with standardized error handling.
@@ -19,7 +39,34 @@ export async function callRPC<T = any>(
     functionName: string,
     payload?: Record<string, any>
 ): Promise<T> {
-    const { data, error } = await supabase.rpc(functionName, payload || {});
+    if (mockRpcResult !== null) {
+        return mockRpcResult as T;
+    }
+
+    checkMutationAllowed(functionName);
+
+    if (!supabaseClient) {
+        throw new Error('Supabase client not initialized in rpcClient');
+    }
+
+    if (functionName === RPC_SIGNALS.CREATE_INSTITUTION_ACCOUNT) {
+        const allowed = [
+            '_institution_name',
+            '_admin_email',
+            '_admin_password',
+            '_institution_type',
+            '_country'
+        ];
+        const keys = Object.keys(payload || {});
+
+        for (const key of keys) {
+            if (!allowed.includes(key)) {
+                throw new Error(`[RPC_FIREWALL] Invalid key: ${key}`);
+            }
+        }
+    }
+
+    const { data, error } = await supabaseClient.rpc(functionName, payload || {});
 
     if (error) {
         console.error(`[RPC_FAILURE] ${functionName}:`, error.message);
@@ -39,9 +86,16 @@ export async function callRPC<T = any>(
  */
 export async function queryTable<T = any>(
     table: string,
-    query: (builder: ReturnType<typeof supabase.from>) => any
+    query: (builder: any) => any
 ): Promise<T> {
-    const builder = supabase.from(table);
+    if (mockQueryResult !== null) {
+        return mockQueryResult as T;
+    }
+
+    if (!supabaseClient) {
+        throw new Error('Supabase client not initialized in rpcClient');
+    }
+    const builder = supabaseClient.from(table);
     const { data, error } = await query(builder);
 
     if (error) {
@@ -51,3 +105,4 @@ export async function queryTable<T = any>(
 
     return data as T;
 }
+
