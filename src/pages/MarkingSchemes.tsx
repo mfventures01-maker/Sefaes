@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useStore } from '../lib/store';
 import { ShieldCheck, FileText, Loader2, BookOpen } from 'lucide-react';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
 
 interface MarkingScheme {
     id: string;
@@ -18,6 +19,8 @@ const MarkingSchemes: React.FC = () => {
     const [markingScheme, setMarkingScheme] = useState<MarkingScheme | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const bus = CommandBus.getInstance();
+
     useEffect(() => {
         if (schoolId) {
             fetchExams();
@@ -28,28 +31,18 @@ const MarkingSchemes: React.FC = () => {
 
     const fetchExams = async () => {
         try {
-            // Need to find exams that belong to classes in this school
-            const { data, error } = await supabase
-                .from('exams')
-                .select(`
-          id,
-          exam_title,
-          marking_scheme,
-          classes!inner (
-            school_id
-          )
-        `)
-                .eq('classes.school_id', schoolId)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setExams(data || []);
-            if (data && data.length > 0) {
-                setSelectedExamId(data[0].id);
-                setMarkingScheme(data[0].marking_scheme);
+            const data = await bus.dispatch({
+                type: COMMANDS.EXAMS_WITH_SCHEMES_READ,
+                payload: { schoolId }
+            });
+            const safeData = data || [];
+            setExams(safeData);
+            if (safeData.length > 0) {
+                setSelectedExamId(safeData[0].id);
+                setMarkingScheme(safeData[0].marking_scheme);
             }
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error('[MARKING_SCHEMES] fetchExams:', err.message);
         } finally {
             setLoading(false);
         }

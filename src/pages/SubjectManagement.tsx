@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../lib/store';
 import { Plus, Trash2, Library, Loader2, BookOpen } from 'lucide-react';
-import { onboardingService } from '../services/onboardingService';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
 
 interface SubjectData {
     id: string;
@@ -36,10 +37,14 @@ const SubjectManagement: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [classesData, subjectsData] = await Promise.all([
-                onboardingService.getClasses(schoolId!),
-                onboardingService.getClassSubjects(schoolId!)
-            ]);
+            const classesData = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.CLASSES_READ,
+                payload: { schoolId }
+            });
+            const subjectsData = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.CLASS_SUBJECTS_READ,
+                payload: { schoolId }
+            });
 
             if (classesData) setClasses(classesData as any);
             if (subjectsData) {
@@ -65,12 +70,22 @@ const SubjectManagement: React.FC = () => {
 
         setLoading(true);
         try {
-            // Service handles catalog creation if needed (Signal: CREATE_SUBJECT_IN_CATALOG)
-            const created = await onboardingService.createSubjectInCatalog(newSubjectName.trim());
+            // Service handles catalog creation if needed
+            const created = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.SUBJECTS_CREATE,
+                payload: { name: newSubjectName.trim() }
+            });
             const subjectId = created.id;
 
             // Step 2: Assign to class
-            const data = await onboardingService.assignSubjectToClass(selectedClassId, subjectId, schoolId!);
+            const data = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.CLASS_SUBJECTS_CREATE,
+                payload: {
+                    classId: selectedClassId,
+                    subjectId,
+                    schoolId: schoolId!
+                }
+            });
 
             if (data) {
                 const newEntry = {
@@ -95,7 +110,10 @@ const SubjectManagement: React.FC = () => {
         if (!confirm('Are you sure you want to delete this subject assignment?')) return;
 
         try {
-            await onboardingService.deleteSubjectAssignment(id);
+            await CommandBus.getInstance().dispatch({
+                type: COMMANDS.CLASS_SUBJECTS_DELETE,
+                payload: { id }
+            });
             setSubjects(subjects.filter(s => s.id !== id));
         } catch (err) {
             console.error('Error deleting subject:', err);

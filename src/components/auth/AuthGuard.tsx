@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { authService } from '../../services/authService';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
 
 export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -10,7 +10,7 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 
     useEffect(() => {
         const verifySession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await authService.getSession();
 
             if (!session) {
                 navigate('/login');
@@ -18,24 +18,10 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
             }
 
             // Dashboard Verification
-            // SELECT i.name, p.full_name, p.role FROM profiles p JOIN institutions i ON p.institution_id = i.id WHERE p.user_id = auth.uid()
-            const { data, error } = await supabase
-                .from('profiles')
-                .select(`
-                    full_name,
-                    role,
-                    institution_id,
-                    institutions (
-                        name,
-                        type
-                    )
-                `)
-                .eq('user_id', session.user.id)
-                .single();
+            const { data, error } = await authService.getProfileWithInstitution(session.user.id);
 
             if (error || !data || !data.institutions) {
                 console.error("DASHBOARD VERIFICATION FAILED", error);
-                // If this query fails, the system must redirect to: /auth/recover-account
                 navigate('/auth/recover-account');
                 return;
             }

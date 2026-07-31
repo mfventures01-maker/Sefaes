@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { authDispatcher } from '../../services/authDispatcher';
 import { ArrowRight } from 'lucide-react';
 import { institutionService } from '../../services/institutionService';
 
@@ -31,7 +31,7 @@ const SignupPage: React.FC = () => {
         e.preventDefault();
         setError(null);
 
-        // Client-side validation
+        // Client-side input validation ONLY (no auth logic)
         if (!form.institutionName.trim()) return setError('Institution name is required');
         if (!isValidEmail(form.email)) return setError('Invalid email address');
         if (!isStrongPassword(form.password)) return setError('Password must be at least 8 characters');
@@ -39,16 +39,12 @@ const SignupPage: React.FC = () => {
 
         setLoading(true);
         try {
-            // STEP 1: Create Supabase auth user
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: form.email,
-                password: form.password,
-            });
+            // STEP 1: Dispatch AUTH.SIGNUP_SELF command via gateway
+            const signupResult = await authDispatcher.signUp(form.email, form.password);
 
-            if (authError) throw authError;
-            const authUser = authData?.user;
-
-            if (!authUser) throw new Error('Failed to retrieve newly created user');
+            if (!signupResult.success) {
+                throw new Error(signupResult.error?.message || 'Signup failed');
+            }
 
             // STEP 2: Call specialized service (Deterministic RPC)
             await institutionService.createInstitutionAccount({
@@ -59,13 +55,12 @@ const SignupPage: React.FC = () => {
                 admin_email: form.email
             });
 
-            // STEP 3 — Immediately establish a login session
-            const { error: loginError } = await supabase.auth.signInWithPassword({
-                email: form.email,
-                password: form.password
-            });
+            // STEP 3 — Dispatch AUTH.SIGN_IN to establish session
+            const signInResult = await authDispatcher.signIn(form.email, form.password);
 
-            if (loginError) throw loginError;
+            if (!signInResult.success) {
+                throw new Error(signInResult.error?.message || 'Auto-login failed');
+            }
 
             // Redirect user to workspace selection portal
             navigate(`/portal`);
@@ -74,6 +69,11 @@ const SignupPage: React.FC = () => {
             console.error("SIGNUP PIPELINE FAILURE:", err);
             setError(err?.message ?? 'Signup failed. Please try again.');
         } finally {
+            setForm({
+                ...form,
+                password: '',
+                confirmPassword: ''
+            });
             setLoading(false);
         }
     };

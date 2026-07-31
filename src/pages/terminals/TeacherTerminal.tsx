@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useStore } from '../../lib/store';
+import { gradingService } from '../../services/gradingService';
+import { teacherReviewDispatcher } from '../../lib/teacherReviewDispatcher';
 import {
     PlusCircle,
     UploadCloud,
@@ -18,6 +19,8 @@ const TeacherTerminal: React.FC = () => {
     const [exams, setExams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [pendingReviews, setPendingReviews] = useState<any[]>([]);
+
     useEffect(() => {
         if (!schoolId) return;
         fetchTeacherData();
@@ -26,12 +29,14 @@ const TeacherTerminal: React.FC = () => {
     const fetchTeacherData = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase
-                .from('exams')
-                .select('*')
-                .eq('school_id', schoolId)
-                .order('created_at', { ascending: false });
+            const data = await gradingService.loadExams(schoolId);
             setExams(data ?? []);
+
+            // FIX-04: Load live pending reviews from DB instead of hardcoded mock data
+            const reviewsResult = await teacherReviewDispatcher.getPendingReviews();
+            if (reviewsResult.success) {
+                setPendingReviews(reviewsResult.data);
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -127,20 +132,26 @@ const TeacherTerminal: React.FC = () => {
                 <div className="lg:col-span-4 space-y-8">
                     <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white">
                         <h3 className="text-xl font-black mb-6 tracking-tight flex items-center italic">
-                            <BrainCircuit className="w-5 h-5 mr-3 text-indigo-400" />
-                            AI Insight Stream
+                            <FileCheck className="w-5 h-5 mr-3 text-indigo-400" />
+                            Pending Script Reviews
                         </h3>
                         <div className="space-y-6">
-                            {[
-                                { msg: 'JSS3 Physics scripts successfully extracted via OCR.', type: 'success' },
-                                { msg: 'Anomalous grading detected in "Section B" of SS1 Math.', type: 'alert' },
-                                { msg: 'Rubric optimization suggested for Biology essay.', type: 'suggest' }
-                            ].map((s, i) => (
-                                <div key={i} className="flex space-x-4 items-start p-4 bg-white/5 rounded-2xl border border-white/10">
-                                    <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${s.type === 'success' ? 'bg-emerald-400' : s.type === 'alert' ? 'bg-red-400' : 'bg-indigo-400'}`}></div>
-                                    <p className="text-xs font-medium leading-relaxed text-slate-400">{s.msg}</p>
-                                </div>
-                            ))}
+                            {pendingReviews.length === 0 ? (
+                                <p className="text-sm text-slate-400">No pending scripts require your review.</p>
+                            ) : (
+                                pendingReviews.slice(0, 5).map((review) => (
+                                    <div key={review.review_id} className="flex flex-col space-y-2 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                        <div className="flex justify-between items-start">
+                                            <p className="text-sm font-bold text-slate-200">{review.student_name}</p>
+                                            <span className="text-xs font-black text-indigo-400">{review.ai_score}/100</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 truncate">{review.exam_title}</p>
+                                        <button className="mt-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 py-1.5 px-3 rounded-lg w-fit transition-colors">
+                                            Review Script
+                                        </button>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
 

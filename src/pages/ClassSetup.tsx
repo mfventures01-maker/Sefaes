@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../lib/store';
-import { Plus, Trash2, Users, Loader2 } from 'lucide-react';
-import { onboardingService } from '../services/onboardingService';
+import { Plus, Trash2, Users, Loader2, AlertCircle } from 'lucide-react';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
+import type { CommandError } from '../lib/commandTypes';
 
 interface ClassData {
     id: string;
@@ -16,6 +18,9 @@ const ClassSetup: React.FC = () => {
     const [newClassName, setNewClassName] = useState('');
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
+    const [commandError, setCommandError] = useState<CommandError | null>(null);
+
+    const bus = CommandBus.getInstance();
 
     useEffect(() => {
         if (schoolId) {
@@ -27,11 +32,13 @@ const ClassSetup: React.FC = () => {
 
     const fetchClasses = async () => {
         try {
-            // Using service helper to get classes
-            const data = await onboardingService.getClasses(schoolId!);
+            const data = await bus.dispatch({
+                type: COMMANDS.CLASSES_READ,
+                payload: { schoolId: schoolId! }
+            });
             setClasses(data || []);
-        } catch (err) {
-            console.error('Error fetching classes:', err);
+        } catch (err: any) {
+            console.error('[CLASS_SETUP] fetchClasses:', err.message);
         } finally {
             setFetching(false);
         }
@@ -42,19 +49,23 @@ const ClassSetup: React.FC = () => {
         if (!newClassName.trim() || !schoolId) return;
 
         setLoading(true);
+        setCommandError(null);
         try {
-            const data = await onboardingService.createClass({
-                name: newClassName.trim(),
-                school_id: schoolId
+            const data = await bus.dispatch({
+                type: COMMANDS.CLASSES_CREATE,
+                payload: { name: newClassName.trim(), schoolId }
             });
 
             if (data) {
                 setClasses([...classes, data as any]);
                 setNewClassName('');
             }
-        } catch (err) {
-            console.error('Error adding class:', err);
-            alert('Failed to add class.');
+        } catch (err: any) {
+            setCommandError({
+                message: err.message,
+                code: 'CLASSES_CREATE_FAILED',
+                traceId: `SEFAES-CLASS-${Date.now().toString(36).toUpperCase()}`,
+            });
         } finally {
             setLoading(false);
         }
@@ -62,13 +73,19 @@ const ClassSetup: React.FC = () => {
 
     const handleDeleteClass = async (id: string) => {
         if (!confirm('Are you sure you want to delete this class?')) return;
-
+        setCommandError(null);
         try {
-            await onboardingService.deleteClass(id);
+            await bus.dispatch({
+                type: COMMANDS.CLASSES_DELETE,
+                payload: { id }
+            });
             setClasses(classes.filter(c => c.id !== id));
-        } catch (err) {
-            console.error('Error deleting class:', err);
-            alert('Failed to delete class.');
+        } catch (err: any) {
+            setCommandError({
+                message: err.message,
+                code: 'CLASSES_DELETE_FAILED',
+                traceId: `SEFAES-CLASS-${Date.now().toString(36).toUpperCase()}`,
+            });
         }
     };
 
@@ -111,6 +128,16 @@ const ClassSetup: React.FC = () => {
                         <span>Add Class</span>
                     </button>
                 </form>
+
+                {commandError && (
+                    <div className="mt-4 bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-200 flex items-start gap-2">
+                        <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold">{commandError.message}</p>
+                            <p className="text-xs text-red-400 mt-1 font-mono">Ref: {commandError.traceId}</p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { authService } from '../../services/authService';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
 import { onboardingService } from '../../services/onboardingService';
 
@@ -13,7 +13,7 @@ export const SecondaryWorkspace: React.FC = () => {
         const executeWorkspaceGuard = async () => {
             try {
                 // Fetch authenticated user properly per requirements
-                const { data: { user }, error: authError } = await supabase.auth.getUser();
+                const { data: { user }, error: authError } = await authService.getUser();
 
                 if (authError || !user) {
                     navigate('/login');
@@ -21,11 +21,7 @@ export const SecondaryWorkspace: React.FC = () => {
                 }
 
                 // Fetch profile to inspect institution_id
-                const { data: profile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('institution_id, role')
-                    .eq('user_id', user.id)
-                    .single();
+                const { data: profile, error: profileError } = await authService.getProfile(user.id);
 
                 if (profileError || !profile) {
                     throw new Error("Profile not found");

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { onboardingService, InstitutionPayload, SchoolPayload, TeacherPayload, StudentPayload } from '../../services/onboardingService';
+import { onboardingService, InstitutionPayload, SchoolFormPayload, TeacherFormPayload, StudentFormPayload } from '../../services/onboardingService';
 import { useInstitutionStore } from '../../store/useInstitutionStore';
 import {
     Building,
@@ -101,21 +101,21 @@ export const CreateInstitution: React.FC = () => {
     });
 
     const [schoolId, setLocalSchoolId] = useState<string | null>(null);
-    const [schoolData, setSchoolData] = useState<SchoolPayload>({
+    const [schoolData, setSchoolData] = useState<SchoolFormPayload>({
         institution_id: '',
         school_name: '',
         school_type: 'Secondary',
         address: ''
     });
 
-    const [teacherData, setTeacherData] = useState<TeacherPayload>({
+    const [teacherData, setTeacherData] = useState<TeacherFormPayload>({
         school_id: '',
         name: '',
         email: '',
         phone: ''
     });
 
-    const [studentData, setStudentData] = useState<StudentPayload>({
+    const [studentData, setStudentData] = useState<StudentFormPayload>({
         class_id: '',
         first_name: '',
         last_name: '',
@@ -239,7 +239,7 @@ export const CreateInstitution: React.FC = () => {
         setError(null);
         try {
             const student = await onboardingService.enrollStudent(studentData);
-            await onboardingService.enrollStudentSubjects(student.id);
+            await onboardingService.enrollStudentSubjects(student.student_id);
             setState('ONBOARDING_COMPLETE');
         } catch (err: any) {
             setError(err.message || 'Failed to enroll student');

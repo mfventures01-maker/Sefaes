@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../lib/store';
 import { FileText, Loader2, PlusCircle, Check, Trash2 } from 'lucide-react';
-import { gradingService } from '../services/gradingService';
-import { classService } from '../services/classService';
-import { subjectService } from '../services/subjectService';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
 import { MarkingScheme } from '../types';
 
 const ExamCreation: React.FC = () => {
@@ -45,10 +44,14 @@ const ExamCreation: React.FC = () => {
 
         const fetchDropdowns = async () => {
             try {
-                const [clsData, subjData] = await Promise.all([
-                    classService.getClasses(schoolId),
-                    subjectService.getSubjectCatalog()
-                ]);
+                const clsData = await CommandBus.getInstance().dispatch({
+                    type: COMMANDS.CLASSES_READ,
+                    payload: { schoolId }
+                });
+                const subjData = await CommandBus.getInstance().dispatch({
+                    type: COMMANDS.SUBJECTS_READ,
+                    payload: {}
+                });
 
                 if (clsData) setClasses(clsData as any);
                 if (subjData) setSubjects(subjData as any);
@@ -81,13 +84,16 @@ const ExamCreation: React.FC = () => {
 
             if (markingScheme.rubric.length === 0) throw new Error('Add at least one rubric criterion');
 
-            await gradingService.createExam({
-                p_exam_title: formData.exam_title,
-                p_subject_id: formData.subject_id,
-                p_class_id: formData.class_id,
-                p_exam_date: formData.exam_date,
-                p_marking_scheme: markingScheme,
-                p_school_id: schoolId
+            await CommandBus.getInstance().dispatch({
+                type: COMMANDS.EXAMS_CREATE,
+                payload: {
+                    p_exam_title: formData.exam_title,
+                    p_subject_id: formData.subject_id,
+                    p_class_id: formData.class_id,
+                    p_exam_date: formData.exam_date,
+                    p_marking_scheme: markingScheme,
+                    p_school_id: schoolId
+                }
             });
 
             setSuccess(true);
@@ -262,6 +268,5 @@ const ExamCreation: React.FC = () => {
         </div>
     );
 };
-
 
 export default ExamCreation;

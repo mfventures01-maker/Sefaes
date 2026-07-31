@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../lib/store';
-import { onboardingService } from '../../services/onboardingService';
+import { examEventEngine } from '../../engine/examEventEngine';
 import { Layout, BookOpen, Users, PlusCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 const SchoolSetup: React.FC = () => {
@@ -18,9 +18,12 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onboardingService.createClass({
-                name: className,
-                school_id: schoolId!
+            await examEventEngine.transition('CREATE_CLASS', {
+                role: 'admin',
+                data: {
+                    name: className,
+                    school_id: schoolId!
+                }
             });
             setSuccess(`Class ${className} created!`);
             setClassName('');
@@ -36,7 +39,10 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onboardingService.createSubjectInCatalog(subjectName);
+            await examEventEngine.transition('CREATE_SUBJECT', {
+                role: 'admin',
+                name: subjectName
+            });
             setSuccess(`Subject ${subjectName} created in catalog!`);
             setSubjectName('');
         } catch (err: any) {
@@ -51,12 +57,15 @@ const SchoolSetup: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            await onboardingService.createTeacher({
-                name: teacherName,
-                email: '', // placeholder for form extension
-                phone: '',  // placeholder for form extension
-                school_id: schoolId!,
-                class_subject_id: undefined // optional
+            await examEventEngine.transition('CREATE_TEACHER', {
+                role: 'admin',
+                data: {
+                    name: teacherName,
+                    email: '', // placeholder for form extension
+                    phone: '',  // placeholder for form extension
+                    school_id: schoolId!,
+                    class_subject_id: undefined // optional
+                }
             });
             setSuccess(`Teacher ${teacherName} added!`);
             setTeacherName('');

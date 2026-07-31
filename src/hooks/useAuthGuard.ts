@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { authService } from '../services/authService';
 import { useInstitutionStore } from '../store/useInstitutionStore';
 
 export interface UserProfile {
@@ -8,7 +8,14 @@ export interface UserProfile {
     user_id: string;
     institution_id: string;
     full_name: string;
-    role: 'principal_admin' | 'teacher' | 'student' | 'examiner';
+    role:
+    | 'admin'
+    | 'teacher'
+    | 'student'
+    | 'parent'
+    | 'examiner'
+    | 'ceo'
+    | 'super_admin';
     created_at: string;
 }
 
@@ -21,7 +28,7 @@ export const useAuthGuard = () => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session } } = await authService.getSession();
 
                 if (!session) {
                     navigate('/login');
@@ -29,15 +36,9 @@ export const useAuthGuard = () => {
                 }
 
                 // Fetch profile
-                const { data: profileData, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('user_id', session.user.id)
-                    .single();
+                const { data: profileData, error: profileError } = await authService.getFullProfile(session.user.id);
 
                 if (profileError || !profileData) {
-                    // Profile might not exist yet if signup was interrupted
-                    // or if it's a social login without profile creation
                     navigate('/login');
                     return;
                 }
@@ -47,11 +48,7 @@ export const useAuthGuard = () => {
                 setInstitutionId(userProfile.institution_id);
 
                 // Fetch institution type to sync store
-                const { data: institutionData } = await supabase
-                    .from('institutions')
-                    .select('type')
-                    .eq('id', userProfile.institution_id)
-                    .single();
+                const { data: institutionData } = await authService.getInstitutionType(userProfile.institution_id);
 
                 if (institutionData) {
                     setInstitutionType(institutionData.type as any);

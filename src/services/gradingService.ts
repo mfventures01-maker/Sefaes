@@ -6,7 +6,7 @@
 
 import { callRPC, queryTable } from '../lib/rpcClient';
 import { RPC_SIGNALS } from '../lib/rpcSignalRegistry';
-import { supabase } from '../lib/supabase';
+import { db, functions } from '../db/dbGateway';
 
 export interface ExamPayload {
     p_exam_title: string;
@@ -69,6 +69,26 @@ export const gradingService = {
                 .select('id, exam_title, subject_id, class_id, exam_date, marking_scheme')
                 .eq('school_id', school_id)
                 .order('exam_date', { ascending: false })
+        );
+    },
+
+    /**
+     * QUERY SIGNAL: LOAD_EXAMS_FOR_MARKING_SCHEMES
+     * Returns exams with marking schemes.
+     */
+    loadExamsForMarkingSchemes: async (school_id: string) => {
+        return queryTable('exams', (builder) =>
+            builder
+                .select(`
+                    id,
+                    exam_title,
+                    marking_scheme,
+                    classes!inner (
+                        school_id
+                    )
+                `)
+                .eq('classes.school_id', school_id)
+                .order('created_at', { ascending: false })
         );
     },
 
@@ -190,7 +210,7 @@ export const gradingService = {
      * Invokes the edge function to trigger the grading worker.
      */
     startAIGrading: async (exam_id?: string) => {
-        const { data, error } = await supabase.functions.invoke('grade-script', {
+        const { data, error } = await functions.invoke('grade-script', {
             body: { exam_id: exam_id || null }
         });
         if (error) throw error;
@@ -205,5 +225,15 @@ export const gradingService = {
      */
     finalizeGrading: async (payload: GradingResultPayload) => {
         return callRPC(RPC_SIGNALS.FINALIZE_GRADING, payload);
+    },
+
+    /**
+     * SIGNAL: UPLOAD_SCRIPT
+     * Uploads the student's script file to Supabase Storage and returns its public URL.
+     */
+    uploadScript: async (fileName: string, file: File): Promise<string> => {
+        await db.storage.upload('scripts', fileName, file);
+        const { publicUrl } = db.storage.getPublicUrl('scripts', fileName);
+        return publicUrl;
     }
 };

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import { useStore } from '../lib/store';
-import { Upload, FileText, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
-import { onboardingService } from '../services/onboardingService';
+import { Upload, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
 
 interface StudentRow {
     first_name: string;
@@ -25,7 +26,10 @@ const StudentUpload: React.FC = () => {
     useEffect(() => {
         const fetchClasses = async () => {
             if (!schoolId) return;
-            const data = await onboardingService.getClasses(schoolId);
+            const data = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.CLASSES_READ,
+                payload: { schoolId }
+            });
             if (data) setClasses(data as any);
         };
         fetchClasses();
@@ -69,7 +73,10 @@ const StudentUpload: React.FC = () => {
                         throw new Error('No valid rows found. Ensure CSV has headers: first_name, last_name, student_number, gender, date_of_birth');
                     }
 
-                    await onboardingService.bulkEnrollStudents(validData, schoolId!);
+                    await CommandBus.getInstance().dispatch({
+                        type: COMMANDS.STUDENTS_BULK_CREATE,
+                        payload: { students: validData, schoolId: schoolId! }
+                    });
 
                     setSuccessCount(validData.length);
                     setFile(null);
@@ -181,6 +188,5 @@ const StudentUpload: React.FC = () => {
         </div>
     );
 };
-
 
 export default StudentUpload;

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../lib/store';
-import { Loader2, Play, CheckCircle, BrainCircuit } from 'lucide-react';
-import { gradingService } from '../services/gradingService';
+import { Loader2, Play, CheckCircle, BrainCircuit, AlertCircle, RefreshCw } from 'lucide-react';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
+import type { CommandError } from '../lib/commandTypes';
 
 const GradingQueue: React.FC = () => {
     const { schoolId } = useStore();
@@ -9,44 +11,54 @@ const GradingQueue: React.FC = () => {
     const [activeJobs, setActiveJobs] = useState<any[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [status, setStatus] = useState('');
-    const [error, setError] = useState<string | null>(null);
+    const [commandError, setCommandError] = useState<CommandError | null>(null);
+
+    const bus = CommandBus.getInstance();
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
     }, [schoolId]);
 
     const fetchData = async () => {
         if (!schoolId) return;
         try {
-            // QUERY SIGNAL: LOAD_GRADING_STATUS
-            const { pendingScripts: scripts, activeJobs: jobs } = await gradingService.loadGradingStatus();
-            setPendingScripts(scripts);
-            setActiveJobs(jobs);
+            const result = await bus.dispatch({
+                type: COMMANDS.GRADING_STATUS_READ,
+                payload: {}
+            });
+            const { pendingScripts: scripts, activeJobs: jobs } = result ?? { pendingScripts: [], activeJobs: [] };
+            setPendingScripts(scripts ?? []);
+            setActiveJobs(jobs ?? []);
 
-            if (jobs.length === 0 && isProcessing) {
+            if ((jobs ?? []).length === 0 && isProcessing) {
                 setIsProcessing(false);
                 setStatus('Grading session complete!');
             }
-        } catch (err) {
-            console.error('FETCH_DATA_FAILURE:', err);
+        } catch (err: any) {
+            console.error('[GRADING_QUEUE] fetchData:', err.message);
         }
     };
 
     const startGrading = async () => {
         if (pendingScripts.length === 0) return;
         setIsProcessing(true);
-        setError(null);
+        setCommandError(null);
         setStatus('Triggering AI Workers...');
 
         try {
-            // WORKER SIGNAL: START_AI_GRADING
-            await gradingService.startAIGrading();
-            setStatus('Worker triggered...');
+            await bus.dispatch({
+                type: COMMANDS.GRADING_START,
+                payload: { examId: pendingScripts[0]?.exam_id }
+            });
+            setStatus('Worker triggered. Polling for updates...');
         } catch (err: any) {
-            console.error('START_GRADING_FAILURE:', err);
-            setError(err.message);
+            setCommandError({
+                message: err.message,
+                code: 'GRADING_FAILED',
+                traceId: `SEFAES-GRADE-${Date.now().toString(36).toUpperCase()}`,
+            });
             setIsProcessing(false);
         }
     };
@@ -72,7 +84,6 @@ const GradingQueue: React.FC = () => {
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
                 <BrainCircuit className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
-
                 <h3 className="text-2xl font-bold text-slate-900 mb-2">
                     {totalInQueue} Scripts in Pipeline
                 </h3>
@@ -80,9 +91,21 @@ const GradingQueue: React.FC = () => {
                     {activeJobs.length} jobs currently processing or pending in the cloud.
                 </p>
 
-                {error && (
-                    <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-200 mb-6">
-                        {error}
+                {commandError && (
+                    <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-200 mb-6 text-left">
+                        <div className="flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                            <div>
+                                <p className="font-semibold">{commandError.message}</p>
+                                <p className="text-xs text-red-400 mt-1 font-mono">Ref: {commandError.traceId}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={startGrading}
+                            className="mt-3 flex items-center gap-1 text-xs text-red-600 font-bold hover:underline"
+                        >
+                            <RefreshCw className="w-3 h-3" /> Retry
+                        </button>
                     </div>
                 )}
 
@@ -94,11 +117,9 @@ const GradingQueue: React.FC = () => {
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
                             <div
-                                className="bg-indigo-600 h-4 transition-all duration-300 relative"
-                                style={{ width: `${(completedCount / totalInQueue) * 100}%` }}
-                            >
-                                <div className="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_1s_infinite]"></div>
-                            </div>
+                                className="bg-indigo-600 h-4 transition-all duration-300"
+                                style={{ width: `${totalInQueue > 0 ? (completedCount / totalInQueue) * 100 : 0}%` }}
+                            />
                         </div>
                     </div>
                 ) : (

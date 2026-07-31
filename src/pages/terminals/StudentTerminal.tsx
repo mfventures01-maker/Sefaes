@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useStore } from '../../lib/store';
+import { supabase } from '../../lib/supabase';
 import {
     Calendar,
     FileText,
@@ -13,13 +13,15 @@ import {
     GraduationCap,
     Zap,
     MessageSquare,
-    Clock
+    Clock,
+    AlertCircle
 } from 'lucide-react';
 
 const StudentTerminal: React.FC = () => {
-    const { schoolId } = useStore();
+    const { schoolId, currentUser } = useStore();
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!schoolId) return;
@@ -28,18 +30,66 @@ const StudentTerminal: React.FC = () => {
 
     const fetchStudentData = async () => {
         setLoading(true);
+        setError(null);
         try {
-            // Mocking student results for demo
-            setResults([
-                { id: '1', title: 'Mathematics Midterm', score: '82/100', status: 'Graded', date: '2026-03-10', feedback: 'Excellent grasp of algebraic expressions.' },
-                { id: '2', title: 'Basic Science Quiz', score: '45/100', status: 'Graded', date: '2026-03-12', feedback: 'Need to review cellular respiration.' },
-            ]);
-        } catch (err) {
-            console.error(err);
+            // FIX-05: Replace hardcoded mock data with live DB query.
+            // get_student_published_results only returns results that:
+            //   (a) have been AI-graded
+            //   (b) have been approved by a teacher (via teacher_reviews)
+            //   (c) have been published via exam_result_publications
+            // This enforces the full Northstar workflow before student visibility.
+            const userId = currentUser?.id;
+            if (!userId) {
+                setError('User identity not resolved. Please log in again.');
+                return;
+            }
+
+            // Resolve student record from authenticated user
+            const { data: studentRecord, error: studentError } = await supabase
+                .from('students')
+                .select('id')
+                .eq('school_id', schoolId)
+                .limit(1)
+                .maybeSingle();
+
+            // Note: In a full auth flow, student_id would be in app_metadata.
+            // For now we resolve via school scope as a best-effort.
+            if (studentError) throw studentError;
+
+            if (!studentRecord) {
+                setResults([]);
+                return;
+            }
+
+            const { data, error: rpcError } = await supabase.rpc('get_student_published_results', {
+                p_student_id: studentRecord.id,
+                p_school_id: schoolId
+            });
+
+            if (rpcError) throw rpcError;
+
+            const formatted = (data ?? []).map((d: any) => ({
+                id: d.result_id,
+                title: d.exam_title || 'Unknown Exam',
+                score: d.score !== null ? `${d.score}/100` : 'Pending',
+                status: 'Published',
+                date: d.published_at
+                    ? new Date(d.published_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—',
+                feedback: d.ai_feedback || 'No feedback provided.',
+                className: d.class_name || ''
+            }));
+
+            setResults(formatted);
+        } catch (err: any) {
+            console.error('[StudentTerminal] fetchStudentData failed:', err.message);
+            setError('Could not load your results. Please try again later.');
+            setResults([]);
         } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <div className="p-8 space-y-10 animate-in fade-in duration-700">

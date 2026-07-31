@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { functions } from '../db/dbGateway';
 
 /**
  * SEFAES Secure AI Service
@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 
 export const performOCR = async (imageBase64: string): Promise<string> => {
   try {
-    const { data, error } = await supabase.functions.invoke('ocr-script', {
+    const { data, error } = await functions.invoke('ocr-script', {
       body: { imageBase64 }
     });
 
@@ -29,7 +29,7 @@ export const performOCR = async (imageBase64: string): Promise<string> => {
 export const augmentEssayText = async (text: string): Promise<string> => {
   // Implementing augmentation proxy for backward compatibility if used in UI
   try {
-    const { data, error } = await supabase.functions.invoke('grade-script', {
+    const { data, error } = await functions.invoke('grade-script', {
       body: { action: 'augment', text }
     });
     if (error) return text;
@@ -43,7 +43,7 @@ export const gradeEssay = async (studentText: string, scheme: any) => {
   // This is now primarily handled by the asynchronous 'grading_jobs' queue,
   // but this direct call remains as a developer utility/fallback.
   try {
-    const { data, error } = await supabase.functions.invoke('grade-script', {
+    const { data, error } = await functions.invoke('grade-script', {
       body: { answer: studentText, rubric: scheme }
     });
 

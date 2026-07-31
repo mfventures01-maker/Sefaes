@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../lib/store';
-import { DownloadCloud, Filter, Loader2, FileSearch, Search } from 'lucide-react';
-import { classService } from '../services/classService';
-import { gradingService } from '../services/gradingService';
+import { DownloadCloud, Filter, Loader2, FileSearch, Search, AlertCircle } from 'lucide-react';
+import { CommandBus } from '../lib/CommandBus';
+import { COMMANDS } from '../lib/commandRegistry';
+import type { CommandError } from '../lib/commandTypes';
 
 const Results: React.FC = () => {
     const { schoolId } = useStore();
@@ -11,6 +12,7 @@ const Results: React.FC = () => {
     const [exams, setExams] = useState<{ id: string; exam_title: string; class_id: string }[]>([]);
 
     const [loading, setLoading] = useState(true);
+    const [commandError, setCommandError] = useState<CommandError | null>(null);
 
     const [selectedClass, setSelectedClass] = useState('');
     const [selectedExam, setSelectedExam] = useState('');
@@ -28,30 +30,38 @@ const Results: React.FC = () => {
     const fetchFilters = async () => {
         if (!schoolId) return;
         try {
-            const [classesData, examsData] = await Promise.all([
-                classService.getClasses(schoolId),
-                gradingService.loadExams(schoolId)
-            ]);
+            const classesData = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.CLASSES_READ,
+                payload: { schoolId }
+            });
+            const examsData = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.EXAMS_READ,
+                payload: { schoolId }
+            });
 
             if (classesData) setClasses(classesData as any);
             if (examsData) setExams(examsData as any);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            console.error('[RESULTS] fetchFilters:', err.message);
         }
     };
 
     const fetchResults = async () => {
         if (!schoolId) return;
         setLoading(true);
+        setCommandError(null);
         try {
-            const data = await gradingService.loadAllGradingResults(schoolId);
+            const data = await CommandBus.getInstance().dispatch({
+                type: COMMANDS.GRADING_RESULTS_READ,
+                payload: { schoolId }
+            });
 
-            // PHASE 1 & 2: Normalize data
             const safeData = data ?? [];
-
             const formatted = safeData.map((d: any) => ({
                 id: d.id,
-                studentName: d.answer_scripts?.students ? `${d.answer_scripts.students.first_name} ${d.answer_scripts.students.last_name}` : 'Unknown',
+                studentName: d.answer_scripts?.students
+                    ? `${d.answer_scripts.students.first_name} ${d.answer_scripts.students.last_name}`
+                    : 'Unknown',
                 classId: d.answer_scripts?.students?.class_id || '',
                 examId: d.answer_scripts?.exams?.id || '',
                 examTitle: d.answer_scripts?.exams?.exam_title || 'Unknown Exam',
@@ -59,10 +69,10 @@ const Results: React.FC = () => {
                 feedback: d.ai_feedback,
             }));
 
-            // PHASE 3: Guarded state update
             setResults(formatted);
-        } catch (err) {
-            console.error('RESULTS_FETCH_FAILURE:', err);
+        } catch (err: any) {
+            // err.message is already user-safe from CommandBus
+            console.error('RESULTS_FETCH_FAILURE:', err.message);
             setResults([]);
         } finally {
             setLoading(false);
